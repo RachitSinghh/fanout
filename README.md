@@ -59,25 +59,6 @@ matches your loaded extension id:
 > start it early (SECURITY_AND_ACCESS §1.4). Until verified, use the app in
 > testing mode with allowlisted test users.
 
-## Status (MVP tickets)
-
-All 13 MVP tickets are implemented. `pnpm typecheck`, `pnpm build`, and
-`pnpm test` (27 tests) are green.
-
-- ✅ TICKET-001 — MV3 scaffold
-- ✅ TICKET-002 — Google OAuth + Gmail send *(needs a real OAuth client id to run live)*
-- ✅ TICKET-003 — Gmail compose injection + Shadow-DOM overlay
-- ✅ TICKET-004 — Recipient import (CSV upload + spreadsheet paste)
-- ✅ TICKET-005 — Column → token mapping with auto-detection
-- ✅ TICKET-006 — Personalization token engine
-- ✅ TICKET-007 — Pre-send preview (with missing-token blocking)
-- ✅ TICKET-008 — Sending options (throttle + daily cap)
-- ✅ TICKET-009 — Sequential, resumable send engine (alarms state machine)
-- ✅ TICKET-010 — Daily send-limit guardrail (per-account, per-day)
-- ✅ TICKET-011 — Live progress + pause / resume / cancel
-- ✅ TICKET-012 — Error classification + retry (transient/permanent/account)
-- ✅ TICKET-013 — Send summary report + CSV export + past campaigns
-
 ### Notes / follow-ups
 
 - **Live end-to-end** (real Gmail sends, compose injection) requires loading the
