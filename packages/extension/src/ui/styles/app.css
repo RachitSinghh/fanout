@@ -1,0 +1,21 @@
+@import './tokens.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root,
+  :host {
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv05' 1, 'ss01' 1, 'tnum' 1;
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    background: var(--surface-sunken);
+    color: var(--text-primary);
+  }
+  .font-tnum {
+    font-variant-numeric: tabular-nums;
+  }
+}

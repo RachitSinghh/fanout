@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["chrome", "vite/client"],
+    "paths": {
+      "@fanout/shared": ["../shared/src/index.ts"],
+      "@fanout/shared/*": ["../shared/src/*"]
+    },
+    "baseUrl": "."
+  },
+  "include": ["src", "manifest.config.ts", "vite.config.ts", "tailwind.config.ts"]
+}
