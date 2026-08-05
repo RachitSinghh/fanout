@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
+import { m } from 'framer-motion';
 import { X, Check, FileText } from 'lucide-react';
 import { useCampaignStore, STEP_ORDER, STEP_LABELS, type Step } from '../../store/campaignStore';
 import { Wordmark } from '../components/primitives';
+import { spring } from '../motion/tokens';
 import { ImportStep } from './steps/ImportStep';
 import { MapStep } from './steps/MapStep';
 import { ReviewStep } from './steps/ReviewStep';
@@ -17,30 +19,34 @@ export function CampaignPanel({ onClose }: { onClose: () => void }) {
 
   return (
     <>
-      <header className="flex h-14 shrink-0 items-center justify-between gap-5 border-b border-[var(--border)] px-6">
-        <div className="flex min-w-0 items-center gap-5">
-          <Wordmark className="shrink-0 text-h3" />
-          <Stepper current={step} />
+      <header className="shrink-0 border-b border-[var(--border)]">
+        {/* Row 1 — brand + actions */}
+        <div className="flex h-12 items-center justify-between px-5">
+          <Wordmark className="text-h3" />
+          <div className="flex items-center gap-1">
+            <button
+              aria-label="Templates"
+              title="Templates"
+              onClick={() => setTemplatesOpen(true)}
+              disabled={sending}
+              className="grid h-8 w-8 place-items-center rounded-md text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-sunken)] disabled:opacity-40"
+            >
+              <FileText size={16} />
+            </button>
+            <button
+              aria-label="Close"
+              title="Close"
+              onClick={onClose}
+              disabled={sending}
+              className="grid h-8 w-8 place-items-center rounded-md text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-sunken)] disabled:opacity-40"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
-        <div className="flex shrink-0 items-center gap-1 border-l border-[var(--border)] pl-3">
-          <button
-            aria-label="Templates"
-            title="Templates"
-            onClick={() => setTemplatesOpen(true)}
-            disabled={sending}
-            className="grid h-8 w-8 place-items-center rounded-md text-[var(--text-secondary)] transition-colors hover:bg-neutral-100 disabled:opacity-40"
-          >
-            <FileText size={16} />
-          </button>
-          <button
-            aria-label="Close"
-            title="Close"
-            onClick={onClose}
-            disabled={sending}
-            className="grid h-8 w-8 place-items-center rounded-md text-[var(--text-muted)] transition-colors hover:bg-neutral-100 disabled:opacity-40"
-          >
-            <X size={18} />
-          </button>
+        {/* Row 2 — full-width animated stepper */}
+        <div className="border-t border-[var(--border)] px-5 py-3">
+          <Stepper current={step} />
         </div>
       </header>
       <StepRouter step={step} />
@@ -52,36 +58,64 @@ export function CampaignPanel({ onClose }: { onClose: () => void }) {
 function Stepper({ current }: { current: Step }) {
   const currentIdx = STEP_ORDER.indexOf(current);
   return (
-    <nav aria-label="Progress" className="flex items-center gap-2">
+    <nav aria-label="Progress" className="flex items-center">
       {STEP_ORDER.map((s, i) => {
         const done = i < currentIdx;
         const active = i === currentIdx;
         return (
-          <div key={s} className="flex items-center gap-2">
-            <span className="flex items-center gap-1.5">
+          <Fragment key={s}>
+            <div className="flex shrink-0 items-center gap-2">
               <span
-                className={`grid h-6 w-6 place-items-center rounded-full text-caption font-semibold transition-colors ${
+                className={`relative grid h-7 w-7 place-items-center rounded-full text-caption font-semibold transition-all duration-300 ${
                   active
                     ? 'bg-brand-600 text-[#131209]'
                     : done
-                      ? 'bg-brand-600/20 text-brand-400'
-                      : 'border border-[var(--border)] bg-[var(--surface-sunken)] text-[var(--text-muted)]'
+                      ? 'bg-brand-600/20 text-brand-400 ring-1 ring-inset ring-brand-600/30'
+                      : 'border border-[var(--border-strong)] bg-[var(--surface-sunken)] text-[var(--text-muted)]'
                 }`}
               >
-                {done ? <Check size={12} /> : i + 1}
+                {/* Active dot gets a soft breathing ring so it reads as "you are here". */}
+                {active && (
+                  <m.span
+                    className="absolute inset-0 rounded-full ring-2 ring-brand-600/40"
+                    animate={{ opacity: [0.55, 0, 0.55], scale: [1, 1.4, 1] }}
+                    transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+                  />
+                )}
+                {done ? (
+                  <m.span initial={{ scale: 0 }} animate={{ scale: 1 }} transition={spring.snappy}>
+                    <Check size={13} strokeWidth={3} />
+                  </m.span>
+                ) : (
+                  i + 1
+                )}
               </span>
               <span
-                className={`text-caption transition-colors ${
-                  active ? 'text-[var(--text-primary)]' : done ? 'text-[var(--text-secondary)]' : 'text-[var(--text-muted)]'
+                className={`text-sm transition-colors duration-300 ${
+                  active
+                    ? 'font-semibold text-[var(--text-primary)]'
+                    : done
+                      ? 'text-[var(--text-secondary)]'
+                      : 'text-[var(--text-muted)]'
                 }`}
               >
                 {STEP_LABELS[s]}
               </span>
-            </span>
+            </div>
             {i < STEP_ORDER.length - 1 && (
-              <span className="h-px w-3 bg-[var(--border)]" aria-hidden />
+              <div
+                className="mx-3 h-px min-w-[16px] flex-1 overflow-hidden rounded-full bg-[var(--border)]"
+                aria-hidden
+              >
+                <m.div
+                  className="h-full rounded-full bg-brand-600"
+                  initial={false}
+                  animate={{ width: i < currentIdx ? '100%' : '0%' }}
+                  transition={spring.gentle}
+                />
+              </div>
             )}
-          </div>
+          </Fragment>
         );
       })}
     </nav>
