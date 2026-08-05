@@ -107,7 +107,7 @@ export function TemplatesDialog({ open, onClose }: { open: boolean; onClose: () 
       {open && (
         <m.div
           className="fixed inset-0 z-popover flex items-center justify-center"
-          style={{ background: 'rgba(15,23,42,0.45)' }}
+          style={{ background: 'rgba(0,0,0,0.62)' }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -120,7 +120,8 @@ export function TemplatesDialog({ open, onClose }: { open: boolean; onClose: () 
             role="dialog"
             aria-modal="true"
             aria-label="Templates"
-            className="flex max-h-[80vh] w-[560px] max-w-[92vw] flex-col overflow-hidden rounded-xl bg-[var(--surface)] shadow-lg"
+            className="flex max-h-[80vh] w-[560px] max-w-[92vw] flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]"
+            style={{ boxShadow: '0 24px 64px rgba(0,0,0,0.55)' }}
             initial={{ opacity: 0, scale: 0.96, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98 }}
@@ -180,7 +181,7 @@ export function TemplatesDialog({ open, onClose }: { open: boolean; onClose: () 
                       {templates.map((t) => (
                         <li
                           key={t.id}
-                          className="flex items-center gap-3 rounded-lg border border-[var(--border)] p-3"
+                          className="flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-sunken)] p-3 transition-colors hover:border-[var(--border-strong)]"
                         >
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-body-strong">{t.name}</p>

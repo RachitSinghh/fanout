@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { SendHorizontal, Pause, Play, ShieldCheck, AlertTriangle, XCircle, RotateCw } from 'lucide-react';
+import {
+  SendHorizontal, Pause, Play, ShieldCheck, AlertTriangle, XCircle, RotateCw,
+  CheckCircle2, Loader2, Clock, MinusCircle,
+} from 'lucide-react';
+import type { Recipient, RecipientStatus } from '@fanout/shared';
 import { useCampaignStore } from '../../../store/campaignStore';
 import { useSendStatusStore } from '../../../store/sendStatusStore';
 import { useAuthStore } from '../../../store/authStore';
@@ -52,6 +56,7 @@ export function SendStep() {
   return (
     <Sending
       progress={progress}
+      throttle={campaign.throttle}
       onPause={pause}
       onResume={resume}
       onViewReport={() => goTo('report')}
@@ -92,8 +97,6 @@ function PreSend({
       ? `${Math.round(throttle.minMs / 1000)}s between sends`
       : `${Math.round(throttle.minMs / 1000)}–${Math.round(throttle.maxMs / 1000)}s (randomized) between sends`;
 
-  // Daily-cap pre-send warning (TICKET-010): does this run exceed the remaining
-  // allowance for today?
   const remaining = progress ? Math.max(0, progress.dailyCap - progress.dailyCount) : null;
   const exceedsToday = remaining != null && count > remaining;
 
@@ -110,9 +113,9 @@ function PreSend({
         </>
       }
     >
-      <h2 className="text-h2">Ready to send</h2>
-      <Card className="mt-3">
-        <dl className="flex flex-col gap-2 text-body">
+      <h2 className="text-xl font-semibold">Ready to send</h2>
+      <Card className="mt-4">
+        <dl className="flex flex-col gap-2.5 text-body">
           <Row label="Recipients">
             <span className="font-tnum">{count}</span> individual emails
           </Row>
@@ -145,7 +148,7 @@ function PreSend({
       <Dialog
         open={confirmOpen}
         onClose={onCloseConfirm}
-        icon={<SendHorizontal className="text-brand-600" size={28} />}
+        icon={<SendHorizontal className="text-brand-400" size={28} />}
         title={`Send ${count} individual email${count === 1 ? '' : 's'}?`}
         actions={
           <>
@@ -174,6 +177,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 
 function Sending({
   progress,
+  throttle,
   onPause,
   onResume,
   onViewReport,
@@ -183,6 +187,7 @@ function Sending({
   onConfirmCancel,
 }: {
   progress: ReturnType<typeof useSendStatusStore.getState>['progress'];
+  throttle: { minMs: number; maxMs: number; mode: string };
   onPause: () => void;
   onResume: () => void;
   onViewReport: () => void;
@@ -200,6 +205,19 @@ function Sending({
   const isTerminal = status === 'completed' || status === 'cancelled' || status === 'failed';
   const accountStopped = isPaused && pauseReason === 'account';
   const authStopped = isPaused && pauseReason === 'auth';
+
+  const title =
+    status === 'completed' ? 'Done'
+      : status === 'cancelled' ? 'Cancelled'
+      : status === 'failed' ? 'Stopped'
+      : status === 'paused' ? 'Paused'
+      : 'Sending campaign';
+
+  const gapText =
+    throttle.mode === 'fixed'
+      ? `Fixed ${Math.round(throttle.minMs / 1000)}s gap`
+      : `Randomized ${Math.round(throttle.minMs / 1000)} to ${Math.round(throttle.maxMs / 1000)}s gap`;
+  const capText = progress ? ` · daily cap ${progress.dailyCount} of ${progress.dailyCap} tracked` : '';
 
   return (
     <StepLayout
@@ -235,13 +253,24 @@ function Sending({
         )
       }
     >
-      <h2 className="text-h2">
-        {status === 'completed' ? 'Done' : status === 'cancelled' ? 'Cancelled' : 'Sending'}
-      </h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold">{title}</h2>
+        {isSending && (
+          <span className="inline-flex items-center gap-1.5 text-caption text-brand-400">
+            <span className="h-2 w-2 rounded-full bg-brand-600 animate-pulse" /> live
+          </span>
+        )}
+      </div>
 
       <div className="mt-4">
         {progress ? <ProgressBar p={progress} /> : <p className="text-body text-[var(--text-muted)]">Starting…</p>}
       </div>
+
+      <RecipientFeed active={isSending || isPaused} />
+
+      <p className="mt-4 text-caption text-[var(--text-muted)]">
+        {gapText}{capText}
+      </p>
 
       {accountStopped && (
         <Callout tone="danger" icon={<XCircle size={16} />} className="mt-4">
@@ -285,4 +314,85 @@ function Sending({
       </Dialog>
     </StepLayout>
   );
+}
+
+/** Live per-recipient feed — the landing "Sending" slide's rows, driven by real
+ *  recipient statuses. Polls the store while the run is active so rows flip
+ *  queued → sending → sent in place. */
+function RecipientFeed({ active }: { active: boolean }) {
+  const recipients = useCampaignStore((s) => s.recipients);
+  const refresh = useCampaignStore((s) => s.refresh);
+
+  useEffect(() => {
+    if (!active) return;
+    const id = setInterval(() => void refresh(), 1500);
+    return () => clearInterval(id);
+  }, [active, refresh]);
+
+  const rows = useMemo(() => orderForFeed(recipients).slice(0, 6), [recipients]);
+  if (rows.length === 0) return null;
+
+  return (
+    <ul className="mt-5 flex flex-col gap-2">
+      {rows.map((r) => (
+        <li
+          key={r.id}
+          className={`flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface-sunken)] px-3 py-2 text-body ${
+            r.status === 'pending' ? 'opacity-60' : ''
+          }`}
+        >
+          <StatusIcon status={r.status} />
+          <span className="min-w-0 flex-1 truncate font-mono text-mono-sm">{r.email || '—'}</span>
+          <span className={`font-mono text-caption ${feedLabel(r.status).cls}`}>{feedLabel(r.status).text}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** sending first, then most-recent sent, then failed/skipped, then queued. */
+function orderForFeed(recipients: Recipient[]): Recipient[] {
+  const rank: Record<RecipientStatus, number> = { sending: 0, sent: 1, failed: 2, skipped: 3, pending: 4 };
+  return [...recipients].sort((a, b) => {
+    const d = rank[a.status] - rank[b.status];
+    if (d !== 0) return d;
+    return (b.sentAt ?? 0) - (a.sentAt ?? 0);
+  });
+}
+
+function StatusIcon({ status }: { status: RecipientStatus }) {
+  switch (status) {
+    case 'sent':
+      return <CheckCircle2 size={16} className="shrink-0 text-brand-400" />;
+    case 'sending':
+      return <Loader2 size={16} className="shrink-0 animate-spin text-[var(--text-secondary)]" />;
+    case 'failed':
+      return <XCircle size={16} className="shrink-0 text-danger-fg" />;
+    case 'skipped':
+      return <MinusCircle size={16} className="shrink-0 text-warning-fg" />;
+    case 'pending':
+      // Slow clockwise spin so a queued row reads as "waiting its turn", not frozen.
+      return (
+        <Clock
+          size={16}
+          className="shrink-0 animate-spin text-[var(--text-muted)]"
+          style={{ animationDuration: '4s' }}
+        />
+      );
+  }
+}
+
+function feedLabel(status: RecipientStatus): { text: string; cls: string } {
+  switch (status) {
+    case 'sent':
+      return { text: 'sent', cls: 'text-[var(--text-muted)]' };
+    case 'sending':
+      return { text: 'sending', cls: 'text-brand-400' };
+    case 'failed':
+      return { text: 'failed', cls: 'text-danger-fg' };
+    case 'skipped':
+      return { text: 'skipped', cls: 'text-warning-fg' };
+    case 'pending':
+      return { text: 'queued', cls: 'text-[var(--text-muted)]' };
+  }
 }

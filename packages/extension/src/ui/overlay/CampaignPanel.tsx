@@ -17,26 +17,29 @@ export function CampaignPanel({ onClose }: { onClose: () => void }) {
 
   return (
     <>
-      <header className="flex h-14 shrink-0 items-center justify-between border-b border-[var(--border)] px-6">
-        <Wordmark className="text-h3" />
-        <Stepper current={step} />
-        <div className="flex items-center gap-1">
+      <header className="flex h-14 shrink-0 items-center justify-between gap-5 border-b border-[var(--border)] px-6">
+        <div className="flex min-w-0 items-center gap-5">
+          <Wordmark className="shrink-0 text-h3" />
+          <Stepper current={step} />
+        </div>
+        <div className="flex shrink-0 items-center gap-1 border-l border-[var(--border)] pl-3">
           <button
             aria-label="Templates"
+            title="Templates"
             onClick={() => setTemplatesOpen(true)}
             disabled={sending}
-            className="flex items-center gap-1.5 rounded-md px-2 py-1 text-label text-[var(--text-secondary)] transition-colors hover:bg-neutral-100 disabled:opacity-40"
+            className="grid h-8 w-8 place-items-center rounded-md text-[var(--text-secondary)] transition-colors hover:bg-neutral-100 disabled:opacity-40"
           >
             <FileText size={16} />
-            Templates
           </button>
           <button
             aria-label="Close"
+            title="Close"
             onClick={onClose}
             disabled={sending}
-            className="rounded-md p-1 text-[var(--text-muted)] transition-colors hover:bg-neutral-100 disabled:opacity-40"
+            className="grid h-8 w-8 place-items-center rounded-md text-[var(--text-muted)] transition-colors hover:bg-neutral-100 disabled:opacity-40"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
       </header>
@@ -49,29 +52,31 @@ export function CampaignPanel({ onClose }: { onClose: () => void }) {
 function Stepper({ current }: { current: Step }) {
   const currentIdx = STEP_ORDER.indexOf(current);
   return (
-    <nav aria-label="Progress" className="flex items-center gap-1.5">
+    <nav aria-label="Progress" className="flex items-center gap-2">
       {STEP_ORDER.map((s, i) => {
         const done = i < currentIdx;
         const active = i === currentIdx;
         return (
-          <div key={s} className="flex items-center gap-1.5">
-            <span
-              className={`flex items-center gap-1.5 rounded-full px-2 py-0.5 text-caption ${
-                active
-                  ? 'bg-brand-50 text-brand-700'
-                  : done
-                    ? 'text-success-fg'
-                    : 'text-[var(--text-muted)]'
-              }`}
-            >
+          <div key={s} className="flex items-center gap-2">
+            <span className="flex items-center gap-1.5">
               <span
-                className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] ${
-                  active ? 'bg-brand-600 text-white' : done ? 'bg-success-fg text-white' : 'bg-neutral-200 text-[var(--text-muted)]'
+                className={`grid h-6 w-6 place-items-center rounded-full text-caption font-semibold transition-colors ${
+                  active
+                    ? 'bg-brand-600 text-[#131209]'
+                    : done
+                      ? 'bg-brand-600/20 text-brand-400'
+                      : 'border border-[var(--border)] bg-[var(--surface-sunken)] text-[var(--text-muted)]'
                 }`}
               >
-                {done ? <Check size={10} /> : i + 1}
+                {done ? <Check size={12} /> : i + 1}
               </span>
-              {STEP_LABELS[s]}
+              <span
+                className={`text-caption transition-colors ${
+                  active ? 'text-[var(--text-primary)]' : done ? 'text-[var(--text-secondary)]' : 'text-[var(--text-muted)]'
+                }`}
+              >
+                {STEP_LABELS[s]}
+              </span>
             </span>
             {i < STEP_ORDER.length - 1 && (
               <span className="h-px w-3 bg-[var(--border)]" aria-hidden />

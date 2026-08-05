@@ -69,6 +69,23 @@
     @media (pointer: fine) { html.cursor-on, html.cursor-on * { cursor: none !important; } }
     @media (pointer: coarse) { #cursor { display: none; } }
   </style>
+
+  <!-- Additive styles for the product tour slider (does not touch anything above) -->
+  <style>
+    .fx-track { transition: transform 0.7s cubic-bezier(0.32, 0.72, 0, 1); }
+    .fx-stack { display: inline-grid; vertical-align: baseline; }
+    .fx-stack > * { grid-column: 1; grid-row: 1; }
+    .fx-stack .real { opacity: 0; }
+    .js .fx-in { opacity: 0; }
+    @keyframes fxfloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+    .fx-float { animation: fxfloat 3s ease-in-out infinite; }
+    @media (prefers-reduced-motion: reduce) {
+      .fx-track { transition: none; }
+      .js .fx-in { opacity: 1 !important; }
+      .fx-stack .real { opacity: 1; }
+      .fx-float { animation: none; }
+    }
+  </style>
 </head>
 <body class="bg-ink text-white font-sans antialiased" style="text-wrap: pretty;">
   <script>document.documentElement.classList.add('js')</script>
@@ -175,6 +192,231 @@
       </div>
     </section>
 
+    <!-- (moved up) redesign preview slider —
+         drop it back below HOW IT WORKS when done reviewing -->
+    <!-- PRODUCT TOUR SLIDER (redesign preview of the extension wizard) -->
+    <section id="tour" tabindex="-1" class="px-4 pb-24">
+      <div class="mx-auto max-w-5xl">
+        <div class="reveal mx-auto max-w-2xl text-center mb-12">
+          <p class="text-sm font-semibold text-accent">A look inside</p>
+          <h2 class="mt-3 text-3xl md:text-4xl font-semibold tracking-tight heading-grad" style="text-wrap: balance;">Five calm steps, one window that never leaves Gmail</h2>
+          <p class="mt-4 text-lg text-white/60">Watch the whole flow, from a raw list to a finished send.</p>
+        </div>
+
+        <div class="reveal rounded-2xl border border-line bg-surface p-2 shadow-2xl shadow-black/60">
+          <div class="rounded-xl border border-line bg-raised overflow-hidden">
+
+            <!-- window chrome -->
+            <div class="flex items-center gap-2 border-b border-line px-4 py-3">
+              <span class="h-3 w-3 rounded-full bg-hi"></span>
+              <span class="h-3 w-3 rounded-full bg-hi"></span>
+              <span class="h-3 w-3 rounded-full bg-hi"></span>
+              <span class="ml-3 text-sm text-white/40 font-mono">mail.google.com</span>
+              <span class="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-accent/15 text-accent px-3 py-1 text-sm font-semibold"><i class="ph-bold ph-paper-plane-tilt"></i> Fanout</span>
+            </div>
+
+            <!-- stepper -->
+            <div class="flex items-center gap-2 md:gap-3 border-b border-line bg-surface/40 px-4 py-3 overflow-x-auto">
+              <button data-step="0" class="fx-step flex items-center gap-2 shrink-0 rounded-lg px-1 py-1 focus-ring">
+                <span class="fx-step-dot grid h-7 w-7 place-items-center rounded-full text-sm font-semibold bg-surface border border-line text-white/40 ease-fluid transition-all duration-500">1</span>
+                <span class="fx-step-label text-sm text-white/40 ease-fluid transition-colors duration-500">Import</span>
+              </button>
+              <span class="h-px w-4 md:w-8 bg-line shrink-0"></span>
+              <button data-step="1" class="fx-step flex items-center gap-2 shrink-0 rounded-lg px-1 py-1 focus-ring">
+                <span class="fx-step-dot grid h-7 w-7 place-items-center rounded-full text-sm font-semibold bg-surface border border-line text-white/40 ease-fluid transition-all duration-500">2</span>
+                <span class="fx-step-label text-sm text-white/40 ease-fluid transition-colors duration-500">Map</span>
+              </button>
+              <span class="h-px w-4 md:w-8 bg-line shrink-0"></span>
+              <button data-step="2" class="fx-step flex items-center gap-2 shrink-0 rounded-lg px-1 py-1 focus-ring">
+                <span class="fx-step-dot grid h-7 w-7 place-items-center rounded-full text-sm font-semibold bg-surface border border-line text-white/40 ease-fluid transition-all duration-500">3</span>
+                <span class="fx-step-label text-sm text-white/40 ease-fluid transition-colors duration-500">Preview</span>
+              </button>
+              <span class="h-px w-4 md:w-8 bg-line shrink-0"></span>
+              <button data-step="3" class="fx-step flex items-center gap-2 shrink-0 rounded-lg px-1 py-1 focus-ring">
+                <span class="fx-step-dot grid h-7 w-7 place-items-center rounded-full text-sm font-semibold bg-surface border border-line text-white/40 ease-fluid transition-all duration-500">4</span>
+                <span class="fx-step-label text-sm text-white/40 ease-fluid transition-colors duration-500">Send</span>
+              </button>
+              <span class="h-px w-4 md:w-8 bg-line shrink-0"></span>
+              <button data-step="4" class="fx-step flex items-center gap-2 shrink-0 rounded-lg px-1 py-1 focus-ring">
+                <span class="fx-step-dot grid h-7 w-7 place-items-center rounded-full text-sm font-semibold bg-surface border border-line text-white/40 ease-fluid transition-all duration-500">5</span>
+                <span class="fx-step-label text-sm text-white/40 ease-fluid transition-colors duration-500">Report</span>
+              </button>
+            </div>
+
+            <!-- viewport -->
+            <div class="overflow-hidden">
+              <div class="fx-track flex" style="min-height: 452px;">
+
+                <!-- STEP 1 — IMPORT -->
+                <div class="fx-slide w-full shrink-0 p-6 md:p-8">
+                  <h3 class="fx-in text-xl font-semibold">Import recipients</h3>
+                  <p class="fx-in mt-2 text-sm text-white/55">Upload a CSV or paste rows from a spreadsheet. Everything stays in this browser.</p>
+                  <div class="fx-in mt-5 inline-flex rounded-lg border border-line bg-surface p-1 text-sm">
+                    <span class="rounded-md bg-accent/15 text-accent px-3 py-1.5 font-semibold inline-flex items-center gap-1.5"><i class="ph ph-upload-simple"></i> Upload CSV</span>
+                    <span class="rounded-md px-3 py-1.5 text-white/50 inline-flex items-center gap-1.5"><i class="ph ph-clipboard-text"></i> Paste</span>
+                  </div>
+                  <div class="fx-in mt-4 rounded-xl border border-dashed border-hi bg-surface/60 px-6 py-9 text-center">
+                    <i class="ph ph-cloud-arrow-up fx-float text-3xl text-white/40"></i>
+                    <p class="mt-3 text-sm text-white/55">Drop a CSV or <span class="text-accent font-medium">click to browse</span></p>
+                  </div>
+                  <div class="fx-in mt-4 flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
+                    <span class="grid h-9 w-9 place-items-center rounded-lg bg-accent/15 text-accent"><i class="ph-bold ph-file-csv"></i></span>
+                    <div class="min-w-0">
+                      <p class="text-sm font-medium truncate">northwind-list.csv</p>
+                      <p class="text-sm text-white/45"><span data-fx-count="297">297</span> rows · 4 columns detected</p>
+                    </div>
+                    <span class="ml-auto inline-flex items-center gap-1.5 text-sm text-accent"><i class="ph-bold ph-check-circle"></i> ready</span>
+                  </div>
+                </div>
+
+                <!-- STEP 2 — MAP -->
+                <div class="fx-slide w-full shrink-0 p-6 md:p-8">
+                  <h3 class="fx-in text-xl font-semibold">Map your columns</h3>
+                  <p class="fx-in mt-2 text-sm text-white/55">Headers were matched to tokens automatically. Adjust any that look off.</p>
+                  <div class="mt-5 space-y-3">
+                    <div class="fx-in flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
+                      <span class="rounded-lg border border-line bg-raised px-3 py-1.5 text-sm text-white/75 font-mono">First name</span>
+                      <i class="ph ph-arrow-right text-white/25"></i>
+                      <span class="rounded-lg bg-accent/15 text-accent px-3 py-1.5 text-sm font-mono">{{FirstName}}</span>
+                      <span class="ml-auto inline-flex items-center gap-1.5 text-sm text-accent/80"><i class="ph ph-magic-wand"></i> auto</span>
+                    </div>
+                    <div class="fx-in flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
+                      <span class="rounded-lg border border-line bg-raised px-3 py-1.5 text-sm text-white/75 font-mono">Company</span>
+                      <i class="ph ph-arrow-right text-white/25"></i>
+                      <span class="rounded-lg bg-accent/15 text-accent px-3 py-1.5 text-sm font-mono">{{Company}}</span>
+                      <span class="ml-auto inline-flex items-center gap-1.5 text-sm text-accent/80"><i class="ph ph-magic-wand"></i> auto</span>
+                    </div>
+                    <div class="fx-in flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
+                      <span class="rounded-lg border border-line bg-raised px-3 py-1.5 text-sm text-white/75 font-mono">City</span>
+                      <i class="ph ph-arrow-right text-white/25"></i>
+                      <span class="rounded-lg bg-accent/15 text-accent px-3 py-1.5 text-sm font-mono">{{City}}</span>
+                      <span class="ml-auto inline-flex items-center gap-1.5 text-sm text-accent/80"><i class="ph ph-magic-wand"></i> auto</span>
+                    </div>
+                    <div class="fx-in flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
+                      <span class="rounded-lg border border-line bg-raised px-3 py-1.5 text-sm text-white/75 font-mono">Email address</span>
+                      <i class="ph ph-arrow-right text-white/25"></i>
+                      <span class="rounded-lg border border-hi bg-raised px-3 py-1.5 text-sm text-white/75 inline-flex items-center gap-1.5"><i class="ph ph-envelope-simple text-white/45"></i> Recipient</span>
+                      <span class="ml-auto text-sm text-white/40">required</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- STEP 3 — PREVIEW -->
+                <div class="fx-slide w-full shrink-0 p-6 md:p-8">
+                  <div class="fx-in flex flex-wrap items-center gap-3">
+                    <h3 class="text-xl font-semibold">Preview a real row</h3>
+                    <span class="ml-auto inline-flex items-center gap-1.5 text-sm text-accent"><i class="ph-bold ph-check-circle"></i> No missing values</span>
+                  </div>
+                  <div class="fx-in mt-4 flex items-center gap-3 text-sm">
+                    <span class="grid h-8 w-8 place-items-center rounded-lg border border-line bg-surface text-white/50"><i class="ph ph-caret-left"></i></span>
+                    <span class="text-white/55">3 of 297</span>
+                    <span class="grid h-8 w-8 place-items-center rounded-lg border border-line bg-surface text-white/50"><i class="ph ph-caret-right"></i></span>
+                    <span class="ml-1 rounded-lg border border-line bg-surface px-3 py-1.5 font-mono text-white/70">priya.nair@northwind.co</span>
+                  </div>
+                  <div class="fx-in mt-4 rounded-xl border border-line bg-surface p-5">
+                    <p class="text-sm text-white/40">Subject</p>
+                    <p class="mt-1 text-base">Quick question,
+                      <span class="fx-stack">
+                        <span class="raw rounded bg-accent/15 text-accent px-1.5 py-0.5 font-mono text-sm">{{FirstName}}</span>
+                        <span class="real font-semibold">Priya</span>
+                      </span>
+                    </p>
+                    <div class="mt-4 space-y-3 text-base leading-relaxed text-white/80">
+                      <p>Hi
+                        <span class="fx-stack">
+                          <span class="raw rounded bg-accent/15 text-accent px-1.5 py-0.5 font-mono text-sm">{{FirstName}}</span>
+                          <span class="real font-semibold">Priya</span>
+                        </span>,
+                      </p>
+                      <p>Saw that
+                        <span class="fx-stack">
+                          <span class="raw rounded bg-accent/15 text-accent px-1.5 py-0.5 font-mono text-sm">{{Company}}</span>
+                          <span class="real font-semibold">Northwind</span>
+                        </span>
+                        just opened its Denver office. Congrats on the move.</p>
+                      <p class="text-white/40">Best,<br/>Nita</p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- STEP 4 — SEND -->
+                <div class="fx-slide w-full shrink-0 p-6 md:p-8">
+                  <div class="fx-in flex items-center justify-between">
+                    <h3 class="text-xl font-semibold">Sending campaign</h3>
+                    <span class="inline-flex items-center gap-1.5 text-sm text-accent"><span class="h-2 w-2 rounded-full bg-accent animate-pulse"></span> live</span>
+                  </div>
+                  <div class="fx-in mt-4 h-2 w-full rounded-full bg-surface overflow-hidden">
+                    <div data-fx-bar="0.62" class="h-full w-full rounded-full bg-accent" style="transform: scaleX(0.62); transform-origin: left;"></div>
+                  </div>
+                  <div class="fx-in mt-2 flex justify-between text-sm text-white/45"><span><span data-fx-count="184">184</span> of 297 sent</span><span>next in 14s</span></div>
+                  <ul class="mt-5 space-y-2 text-sm">
+                    <li class="fx-in flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2"><i class="ph-bold ph-check-circle text-accent"></i> priya.nair@northwind.co <span class="ml-auto text-white/35 font-mono">sent</span></li>
+                    <li class="fx-in flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2"><i class="ph-bold ph-check-circle text-accent"></i> deshawn.owens@harbor.io <span class="ml-auto text-white/35 font-mono">sent</span></li>
+                    <li class="fx-in flex items-center gap-2 rounded-lg border border-hi bg-surface px-3 py-2"><i class="ph ph-circle-notch text-white/50"></i> mara.koenig@lattice.dev <span class="ml-auto text-accent font-mono">sending</span></li>
+                    <li class="fx-in flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 opacity-60"><i class="ph ph-clock text-white/40"></i> tomas.rivera@brightpath.app <span class="ml-auto text-white/35 font-mono">queued</span></li>
+                  </ul>
+                  <p class="fx-in mt-4 text-sm text-white/40">Randomized 8 to 30s gap · daily cap 500 of 500 tracked</p>
+                </div>
+
+                <!-- STEP 5 — REPORT -->
+                <div class="fx-slide w-full shrink-0 p-6 md:p-8">
+                  <h3 class="fx-in text-xl font-semibold">Campaign complete</h3>
+                  <p class="fx-in mt-2 text-sm text-white/55">Every message left from your own Gmail, one at a time.</p>
+                  <div class="mt-6 grid md:grid-cols-2 gap-6 items-center">
+                    <div class="fx-in relative grid place-items-center">
+                      <svg viewBox="0 0 100 100" class="h-32 w-32 -rotate-90">
+                        <circle cx="50" cy="50" r="42" fill="none" stroke="#272727" stroke-width="8"></circle>
+                        <circle data-fx-ring="1" cx="50" cy="50" r="42" fill="none" stroke="#E8B04B" stroke-width="8" stroke-linecap="round"></circle>
+                      </svg>
+                      <div class="absolute text-center">
+                        <p class="text-2xl font-semibold">100%</p>
+                        <p class="text-sm text-white/45">delivered</p>
+                      </div>
+                    </div>
+                    <div class="space-y-3">
+                      <div class="fx-in flex items-center justify-between rounded-xl border border-line bg-surface px-4 py-3">
+                        <span class="text-sm text-white/60 inline-flex items-center gap-2"><i class="ph-bold ph-check-circle text-accent"></i> Sent</span>
+                        <span class="font-mono text-sm"><span data-fx-count="297">297</span></span>
+                      </div>
+                      <div class="fx-in flex items-center justify-between rounded-xl border border-line bg-surface px-4 py-3">
+                        <span class="text-sm text-white/60 inline-flex items-center gap-2"><i class="ph ph-x-circle text-white/40"></i> Failed</span>
+                        <span class="font-mono text-sm text-white/70">0</span>
+                      </div>
+                      <div class="fx-in flex items-center justify-between rounded-xl border border-line bg-surface px-4 py-3">
+                        <span class="text-sm text-white/60 inline-flex items-center gap-2"><i class="ph ph-timer text-white/40"></i> Elapsed</span>
+                        <span class="font-mono text-sm text-white/70">2h 41m</span>
+                      </div>
+                      <div class="fx-in rounded-xl border border-line bg-surface px-4 py-3">
+                        <div class="flex items-center justify-between text-sm text-white/60"><span>Daily cap used</span><span class="font-mono text-white/70">297 / 500</span></div>
+                        <div class="mt-2 h-2 w-full rounded-full bg-raised overflow-hidden">
+                          <div data-fx-bar="0.59" class="h-full w-full rounded-full bg-accent" style="transform: scaleX(0.59); transform-origin: left;"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="fx-in mt-6">
+                    <span class="inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-sm font-semibold text-white/80"><i class="ph ph-download-simple"></i> Export report</span>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- footer -->
+            <div class="flex items-center justify-between gap-3 border-t border-line px-4 py-3">
+              <span data-tour-label class="text-sm text-white/45">Step 1 of 5 — Import</span>
+              <div class="flex items-center gap-2">
+                <button data-tour-back class="rounded-lg border border-line bg-surface px-3 py-2 text-sm font-semibold text-white/80 ease-fluid transition-all duration-300 hover:bg-hi disabled:opacity-40 focus-ring">Back</button>
+                <button data-tour-next class="rounded-lg bg-accent text-warm px-3 py-2 text-sm font-semibold ease-fluid transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] focus-ring">Continue</button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+        <p class="reveal mt-4 text-center text-sm text-white/40">Use the steps above, arrow keys, or just watch it play.</p>
+      </div>
+    </section>
+
     <!-- STAT BAND -->
     <section aria-label="Key numbers" class="border-y border-line bg-surface">
       <div class="mx-auto max-w-5xl px-4 py-12 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
@@ -273,6 +515,7 @@
         </div>
       </div>
     </section>
+
 
     <!-- PROOF -->
     <section class="px-4 pb-24">
@@ -489,6 +732,101 @@
       });
       document.addEventListener('mouseleave', () => { cur.style.opacity = '0'; });
     }
+  </script>
+
+  <!-- Product tour slider (self-contained; reuses the GSAP already loaded above) -->
+  <script>
+  (function () {
+    const root = document.getElementById('tour');
+    if (!root) return;
+    const track = root.querySelector('.fx-track');
+    const slides = [...root.querySelectorAll('.fx-slide')];
+    const steps = [...root.querySelectorAll('.fx-step')];
+    const back = root.querySelector('[data-tour-back]');
+    const next = root.querySelector('[data-tour-next]');
+    const labelEl = root.querySelector('[data-tour-label]');
+    const LABELS = ['Import', 'Map', 'Preview', 'Send', 'Report'];
+    const g = window.gsap;
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const anim = !!g && !reduced;
+    let i = -1, timer = null, locked = false, tl = null;
+
+    function finalState(slide) {
+      slide.querySelectorAll('.fx-in').forEach((el) => { el.style.opacity = 1; el.style.transform = 'none'; el.style.filter = 'none'; });
+      slide.querySelectorAll('[data-fx-count]').forEach((el) => { el.textContent = (+el.dataset.fxCount).toLocaleString(); });
+      slide.querySelectorAll('[data-fx-bar]').forEach((b) => { b.style.transform = 'scaleX(' + (+b.dataset.fxBar || 1) + ')'; });
+      slide.querySelectorAll('.fx-stack .real').forEach((el) => { el.style.opacity = 1; });
+      slide.querySelectorAll('.fx-stack .raw').forEach((el) => { el.style.opacity = 0; });
+      slide.querySelectorAll('[data-fx-ring]').forEach((r) => { const len = r.getTotalLength(); r.style.strokeDasharray = len; r.style.strokeDashoffset = len * (1 - (+r.dataset.fxRing || 1)); });
+    }
+
+    function play(idx) {
+      const slide = slides[idx];
+      if (!anim) { finalState(slide); return; }
+      if (tl) tl.kill();
+      const ins = slide.querySelectorAll('.fx-in');
+      g.set(ins, { opacity: 0, y: 16, filter: 'blur(6px)' });
+      const raws = slide.querySelectorAll('.fx-stack .raw');
+      const reals = slide.querySelectorAll('.fx-stack .real');
+      g.set(raws, { opacity: 1 }); g.set(reals, { opacity: 0 });
+      const bars = slide.querySelectorAll('[data-fx-bar]');
+      bars.forEach((b) => g.set(b, { scaleX: 0, transformOrigin: 'left' }));
+      const rings = slide.querySelectorAll('[data-fx-ring]');
+      rings.forEach((r) => { const len = r.getTotalLength(); g.set(r, { strokeDasharray: len, strokeDashoffset: len }); });
+
+      tl = g.timeline({ defaults: { ease: 'power3.out' } });
+      tl.to(ins, { opacity: 1, y: 0, filter: 'blur(0px)', duration: 0.6, stagger: 0.07 });
+      slide.querySelectorAll('[data-fx-count]').forEach((el) => {
+        const end = +el.dataset.fxCount, o = { v: 0 }; el.textContent = '0';
+        tl.to(o, { v: end, duration: 1.1, ease: 'power2.out', onUpdate: () => { el.textContent = Math.round(o.v).toLocaleString(); } }, '<');
+      });
+      bars.forEach((b) => tl.to(b, { scaleX: +b.dataset.fxBar || 1, duration: 1.2, ease: 'power2.out' }, '<0.2'));
+      rings.forEach((r) => { const len = r.getTotalLength(); tl.to(r, { strokeDashoffset: len * (1 - (+r.dataset.fxRing || 1)), duration: 1.2, ease: 'power2.out' }, '<'); });
+      if (reals.length) { tl.to(raws, { opacity: 0, duration: 0.4 }, '-=0.2').to(reals, { opacity: 1, duration: 0.5 }, '<'); }
+    }
+
+    function updateSteps(idx) {
+      steps.forEach((s, n) => {
+        const dot = s.querySelector('.fx-step-dot'), lbl = s.querySelector('.fx-step-label');
+        const base = 'fx-step-dot grid h-7 w-7 place-items-center rounded-full text-sm font-semibold ease-fluid transition-all duration-500 ';
+        if (n === idx) { dot.className = base + 'bg-accent text-warm'; dot.textContent = n + 1; lbl.className = 'fx-step-label text-sm text-white ease-fluid transition-colors duration-500'; }
+        else if (n < idx) { dot.className = base + 'bg-accent/20 text-accent'; dot.innerHTML = '<i class="ph-bold ph-check"></i>'; lbl.className = 'fx-step-label text-sm text-white/60 ease-fluid transition-colors duration-500'; }
+        else { dot.className = base + 'bg-surface border border-line text-white/40'; dot.textContent = n + 1; lbl.className = 'fx-step-label text-sm text-white/40 ease-fluid transition-colors duration-500'; }
+      });
+    }
+
+    function go(idx, user) {
+      idx = Math.max(0, Math.min(slides.length - 1, idx));
+      if (user) { locked = true; stopAuto(); }
+      if (idx === i) return;
+      i = idx;
+      track.style.transform = 'translateX(-' + (idx * 100) + '%)';
+      updateSteps(idx);
+      labelEl.textContent = 'Step ' + (idx + 1) + ' of 5 — ' + LABELS[idx];
+      back.disabled = idx === 0;
+      next.textContent = idx === slides.length - 1 ? 'Done' : 'Continue';
+      play(idx);
+    }
+
+    steps.forEach((s, n) => s.addEventListener('click', () => go(n, true)));
+    back.addEventListener('click', () => go(i - 1, true));
+    next.addEventListener('click', () => go(i >= slides.length - 1 ? 0 : i + 1, true));
+    root.addEventListener('keydown', (e) => { if (e.key === 'ArrowRight') go(i + 1, true); if (e.key === 'ArrowLeft') go(i - 1, true); });
+
+    function startAuto() { if (!anim || locked) return; stopAuto(); timer = setInterval(() => { if (!locked) go((i + 1) % slides.length, false); }, 4800); }
+    function stopAuto() { if (timer) { clearInterval(timer); timer = null; } }
+    root.addEventListener('pointerenter', stopAuto);
+    root.addEventListener('pointerleave', () => { if (!locked) startAuto(); });
+
+    let started = false;
+    function begin() { if (started) return; started = true; go(0, false); startAuto(); }
+    if (anim && window.ScrollTrigger) {
+      window.ScrollTrigger.create({ trigger: root, start: 'top 75%', once: true, onEnter: begin });
+    } else {
+      slides.forEach(finalState);
+      go(0, false);
+    }
+  })();
   </script>
 </body>
 </html>

@@ -251,6 +251,26 @@ Derived from PRD v1.0 (July 9, 2026). Tickets are sequenced in recommended build
 
 **MVP = TICKET-001 through TICKET-013.** Everything in Epics D & E is deferred per PRD §7–8.
 
+## Epic F — Launch Prerequisites (non-code, required to go public)
+
+These don't block local testing (the extension is fully functional in Google's
+"Testing" mode), but every one is required before publishing beyond the 100
+test-user cap. Start OAuth verification early — it has a multi-week lead time
+(PRD §9). No backend is introduced; hosting is static only (privacy pitch: all
+PII stays in the browser, no server).
+
+| Ticket | Item | Status | Blocks | Depends on |
+|---|---|---|---|---|
+| TICKET-027 | Landing page (host `landing/index.html` at a public URL) | Partial — HTML exists, unhosted | Marketing, OAuth verification | none |
+| TICKET-028 | Privacy Policy page (`gmail.send`-only, no inbox read, no server, PII local) | Missing | OAuth verification | TICKET-027 |
+| TICKET-029 | Terms of Service page | Missing | OAuth verification | TICKET-027 |
+| TICKET-030 | Google OAuth app verification (move out of "Testing") | Not started | Public use beyond 100 test users | TICKET-028, TICKET-029 |
+| TICKET-031 | Chrome Web Store listing + submission | Not started | Public distribution | TICKET-030 |
+| TICKET-032 | Payments / license (optional) | Post-MVP | Monetization | TICKET-031 |
+| TICKET-033 | Error telemetry (optional, scrubbed — no PII) | Post-MVP | Ops visibility | TICKET-031 |
+
+**Launch critical path:** `027 → 028 + 029 → 030 → 031`. 032/033 are post-launch.
+
 ## Cross-cutting non-negotiables (apply to every MVP ticket)
 - **Never** expose one recipient's address to another — each send is a discrete single-recipient message.
 - All sending goes through the user's own Gmail via `gmail.send` — no third-party SMTP relay (PRD §8).

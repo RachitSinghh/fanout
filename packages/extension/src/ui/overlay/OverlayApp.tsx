@@ -57,7 +57,7 @@ export function OverlayApp({
         <m.div
           key="backdrop"
           className="fixed inset-0 flex items-center justify-center"
-          style={{ background: 'rgba(15,23,42,0.45)' }}
+          style={{ background: 'rgba(0,0,0,0.62)' }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -71,22 +71,26 @@ export function OverlayApp({
             role="dialog"
             aria-modal="true"
             aria-label="Fanout campaign"
-            className="flex max-h-[90vh] w-[720px] max-w-[95vw] flex-col overflow-hidden rounded-xl bg-[var(--surface)] shadow-lg"
+            className="flex max-h-[90vh] w-[720px] max-w-[95vw] flex-col rounded-xl border border-[var(--border)] bg-[var(--surface-sunken)] p-1.5"
+            style={{ boxShadow: '0 24px 64px rgba(0,0,0,0.55)' }}
             initial={{ opacity: 0, scale: 0.96, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: 4 }}
             transition={spring.default}
           >
-            {auth.status === 'connected' ? (
-              <CampaignPanel onClose={handleClose} />
-            ) : (
-              <ConnectGate
-                connecting={auth.status === 'connecting'}
-                error={auth.error}
-                onConnect={auth.connect}
-                onClose={handleClose}
-              />
-            )}
+            {/* Inner window body — the landing hero card's card-in-card frame. */}
+            <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]">
+              {auth.status === 'connected' ? (
+                <CampaignPanel onClose={handleClose} />
+              ) : (
+                <ConnectGate
+                  connecting={auth.status === 'connecting'}
+                  error={auth.error}
+                  onConnect={auth.connect}
+                  onClose={handleClose}
+                />
+              )}
+            </div>
           </m.div>
         </m.div>
       </AnimatePresence>

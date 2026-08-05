@@ -1,43 +1,104 @@
-/* Fanout design tokens — declared on both :root (popup/options pages) and
- * :host (the Shadow-DOM overlay in Gmail). FRONTEND_SPEC §13.1. */
+/* Fanout design tokens — shared identity with the landing page (landing/index.html):
+ * warm near-black canvas (#131209) + muted gold accent (#E8B04B), Geist-style sans.
+ * Declared on :root (popup/options) and :host (Shadow-DOM overlay). Dark is the
+ * primary experience; light theme kept sane for the options page. */
 :host,
 :root {
-  /* Brand — Indigo */
-  --brand-50: #eef2ff; --brand-100: #e0e7ff; --brand-200: #c7d2fe; --brand-300: #a5b4fc;
-  --brand-400: #818cf8; --brand-500: #6366f1; --brand-600: #4f46e5; --brand-700: #4338ca;
-  --brand-800: #3730a3; --brand-900: #312e81; --brand-950: #1e1b4b;
-  /* Neutral — Slate */
-  --neutral-0: #ffffff; --neutral-50: #f8fafc; --neutral-100: #f1f5f9; --neutral-200: #e2e8f0;
-  --neutral-300: #cbd5e1; --neutral-400: #94a3b8; --neutral-500: #64748b; --neutral-600: #475569;
-  --neutral-700: #334155; --neutral-800: #1e293b; --neutral-900: #0f172a; --neutral-950: #020617;
-  /* Semantic */
-  --success-fg: #15803d; --success-bg: #f0fdf4; --success-border: #bbf7d0;
-  --warning-fg: #b45309; --warning-bg: #fffbeb; --warning-border: #fde68a;
-  --danger-fg: #b91c1c; --danger-bg: #fef2f2; --danger-border: #fecaca;
-  --info-fg: #1d4ed8; --info-bg: #eff6ff; --info-border: #bfdbfe;
-  --pending-fg: #475569; --pending-bg: #f1f5f9; --pending-border: #e2e8f0;
-  /* Aliases (light) */
+  /* Brand — muted gold (#E8B04B primary) */
+  --brand-50: #fdf6e8; --brand-100: #f9e9c6; --brand-200: #f2d59a; --brand-300: #ecc470;
+  --brand-400: #e8b04b; --brand-500: #e8b04b; --brand-600: #e8b04b; --brand-700: #d69a35;
+  --brand-800: #a8792a; --brand-900: #6f5019; --brand-950: #2a2110;
+  /* Neutral — warm gray ramp (paper #fff … ink #131209) */
+  --neutral-0: #ffffff; --neutral-50: #f6f5f2; --neutral-100: #ecebe7; --neutral-200: #d9d8d3;
+  --neutral-300: #b6b5af; --neutral-400: #9b9b9b; --neutral-500: #77766f; --neutral-600: #4a4a46;
+  --neutral-700: #313131; --neutral-800: #1f1f1f; --neutral-900: #181818; --neutral-950: #131209;
+  /* Semantic — soft, tuned to the warm-dark canvas */
+  --success-fg: #34d399; --success-bg: #ecfdf5; --success-border: #a7f3d0;
+  --warning-fg: #e8b04b; --warning-bg: #fdf6e8; --warning-border: #f2d59a;
+  --danger-fg: #f87171; --danger-bg: #fef2f2; --danger-border: #fecaca;
+  --info-fg: #60a5fa; --info-bg: #eff6ff; --info-border: #bfdbfe;
+  --pending-fg: #77766f; --pending-bg: #f6f5f2; --pending-border: #ecebe7;
+  /* Aliases (light / options page) */
   --surface: var(--neutral-0); --surface-raised: var(--neutral-0); --surface-sunken: var(--neutral-50);
-  --text-primary: var(--neutral-800); --text-secondary: var(--neutral-600); --text-muted: var(--neutral-500);
+  --text-primary: var(--neutral-950); --text-secondary: var(--neutral-500); --text-muted: var(--neutral-400);
   --border: var(--neutral-200); --border-strong: var(--neutral-300);
-  --brand: var(--brand-600); --brand-hover: var(--brand-700); --focus-ring: var(--brand-500);
-  /* Type */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --brand: var(--brand-600); --brand-hover: var(--brand-700); --focus-ring: var(--brand-600);
+  --on-primary: #131209; /* warm ink on gold */
+  /* Type — Geist / Geist Mono (bundled via @fontsource, CSP-safe), matching the landing page */
+  --font-sans: 'Geist Variable', 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   /* Radius */
-  --radius-sm: 6px; --radius-md: 8px; --radius-lg: 12px; --radius-xl: 16px; --radius-full: 9999px;
-  /* Shadows */
-  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.06);
-  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
-  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.1);
-  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.14);
-  --shadow-focus: 0 0 0 3px rgba(99, 102, 241, 0.45);
+  --radius-sm: 6px; --radius-md: 8px; --radius-lg: 10px; --radius-xl: 14px; --radius-full: 9999px;
+  /* Shadows — warm-black tint, used sparingly */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.18);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.24), 0 1px 2px rgba(0, 0, 0, 0.16);
+  --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.32);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.44);
+  --shadow-focus: 0 0 0 3px rgba(232, 176, 75, 0.40);
 }
 
 :host([data-theme='dark']),
 :root[data-theme='dark'] {
-  --surface: #0f172a; --surface-raised: #1e293b; --surface-sunken: #020617;
-  --text-primary: #f1f5f9; --text-secondary: #94a3b8; --text-muted: #64748b;
-  --border: #334155; --border-strong: #475569;
-  --brand: #818cf8; --brand-hover: #a5b4fc; --focus-ring: #818cf8;
+  /* Landing layering (landing/index.html): comfortable gray body (#1F1F1F) with
+   * a darker inset (#181818) for rows/inputs/frame — NOT a flat near-black slab. */
+  --surface: #1f1f1f; --surface-raised: #272727; --surface-sunken: #181818;
+  --text-primary: #ffffff; --text-secondary: #9b9b9b; --text-muted: #6f6f6b;
+  --border: #272727; --border-strong: #313131;
+  --brand: var(--brand-600); --brand-hover: var(--brand-700); --focus-ring: var(--brand-600);
+  /* Dark-tinted semantic surfaces (bright fg stays; bg goes dark) */
+  --success-bg: #10231a; --success-border: #1f4b39;
+  --warning-bg: #241d0e; --warning-border: #4a3d1c;
+  --danger-bg: #2a1414; --danger-border: #4a1f1f;
+  --info-bg: #0e1a2e; --info-border: #1c3352;
+  --pending-bg: #1f1f1f; --pending-border: #313131;
 }
+
+/* Components hardcode light neutral utilities instead of var() tokens, so they
+ * don't flip on dark and leak white. Remap them to dark tokens in one place —
+ * overlay (:host) and popup/options (:root).
+ * ponytail: blanket utility override; migrate to var(--surface-*) if a real
+ * light theme is ever needed again. */
+:host([data-theme='dark']) .bg-neutral-50,
+:host([data-theme='dark']) .bg-neutral-100,
+:root[data-theme='dark'] .bg-neutral-50,
+:root[data-theme='dark'] .bg-neutral-100 { background-color: var(--surface-sunken); }
+:host([data-theme='dark']) .bg-neutral-200,
+:root[data-theme='dark'] .bg-neutral-200 { background-color: var(--border); }
+:host([data-theme='dark']) .border-neutral-200,
+:host([data-theme='dark']) .border-neutral-300,
+:root[data-theme='dark'] .border-neutral-200,
+:root[data-theme='dark'] .border-neutral-300 { border-color: var(--border); }
+:host([data-theme='dark']) .text-neutral-400,
+:root[data-theme='dark'] .text-neutral-400 { color: var(--text-muted); }
+:host([data-theme='dark']) .text-neutral-600,
+:root[data-theme='dark'] .text-neutral-600 { color: var(--text-secondary); }
+:host([data-theme='dark']) .hover\:bg-neutral-50:hover,
+:host([data-theme='dark']) .hover\:bg-neutral-100:hover,
+:host([data-theme='dark']) .hover\:bg-neutral-200:hover,
+:root[data-theme='dark'] .hover\:bg-neutral-50:hover,
+:root[data-theme='dark'] .hover\:bg-neutral-100:hover,
+:root[data-theme='dark'] .hover\:bg-neutral-200:hover { background-color: var(--border); }
+/* Semantic tones (Callout/Badge/chips) use Tailwind's STATIC light hex utilities
+ * (bg-warning-bg = #FDF6E8 etc.), so the dark --*-bg vars never reached them —
+ * they rendered as glaring cream/blue/green blocks on the dark panel. Remap the
+ * utility to the dark-tinted var here, in one place, like the neutral overrides. */
+:host([data-theme='dark']) .bg-success-bg,
+:root[data-theme='dark'] .bg-success-bg { background-color: var(--success-bg); }
+:host([data-theme='dark']) .bg-warning-bg,
+:root[data-theme='dark'] .bg-warning-bg { background-color: var(--warning-bg); }
+:host([data-theme='dark']) .bg-danger-bg,
+:root[data-theme='dark'] .bg-danger-bg { background-color: var(--danger-bg); }
+:host([data-theme='dark']) .bg-info-bg,
+:root[data-theme='dark'] .bg-info-bg { background-color: var(--info-bg); }
+:host([data-theme='dark']) .border-success-border,
+:root[data-theme='dark'] .border-success-border { border-color: var(--success-border); }
+:host([data-theme='dark']) .border-warning-border,
+:root[data-theme='dark'] .border-warning-border { border-color: var(--warning-border); }
+:host([data-theme='dark']) .border-danger-border,
+:root[data-theme='dark'] .border-danger-border { border-color: var(--danger-border); }
+:host([data-theme='dark']) .border-info-border,
+:root[data-theme='dark'] .border-info-border { border-color: var(--info-border); }
+
+/* Gold chips/buttons take ink text, never white. */
+:host([data-theme='dark']) .bg-brand-600.text-white,
+:root[data-theme='dark'] .bg-brand-600.text-white { color: #131209; }

@@ -15,7 +15,7 @@ export function Popup() {
   }, [hydrate]);
 
   return (
-    <div className="flex min-h-[480px] max-h-[600px] w-[400px] flex-col overflow-y-auto bg-[var(--surface-sunken)] p-4">
+    <div className="flex min-h-[480px] max-h-[600px] w-[400px] flex-col overflow-y-auto bg-[var(--surface)] p-4">
       <header className="mb-4 flex items-center justify-between">
         <Wordmark className="text-h2" />
         {status === 'connected' && <Badge tone="success">Connected</Badge>}
@@ -110,12 +110,20 @@ function StartCampaignCard() {
   async function openInGmail() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab?.id && tab.url?.startsWith('https://mail.google.com/')) {
-      await chrome.tabs.sendMessage(tab.id, { type: 'OPEN_OVERLAY' });
-      window.close();
-    } else {
-      await chrome.tabs.create({ url: 'https://mail.google.com/mail/u/0/#inbox?compose=new' });
-      setHint('Opened Gmail — click “◆ Bulk Personalize” in the compose window.');
+      try {
+        await chrome.tabs.sendMessage(tab.id, { type: 'OPEN_OVERLAY' });
+        window.close();
+        return;
+      } catch {
+        // Content script isn't live in that tab — usually a Gmail tab that was
+        // open before the extension (re)loaded, so its content script is orphaned.
+        await chrome.tabs.update(tab.id, { active: true });
+        setHint('Refresh this Gmail tab, then click Bulk Personalize.');
+        return;
+      }
     }
+    await chrome.tabs.create({ url: 'https://mail.google.com/mail/u/0/#inbox?compose=new' });
+    setHint('Opened Gmail — click “Bulk Personalize” in the compose window.');
   }
 
   return (

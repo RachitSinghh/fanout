@@ -174,8 +174,18 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
     // Overwrite subject/body with the template and re-derive the token schema
     // from the template's own content (TICKET-017).
     const patch = templateApplyPatch(template);
-    await dbClient.updateCampaign(campaign.id, patch);
-    set({ campaign: { ...campaign, ...patch } });
+    // Re-map the template's tokens to the already-imported columns. Without this,
+    // applying a template introduces new {{tokens}} that no column feeds, so every
+    // recipient is "missing values". autoDetect maps them against the CSV headers;
+    // keep any column the user already picked (esp. the email column).
+    const prev = new Map(campaign.columnMappings.map((m) => [m.token, m] as const));
+    const columnMappings = autoDetectMappings(campaign.headers, patch.tokenSchema).map((m) => {
+      const existing = prev.get(m.token);
+      return existing?.column ? existing : m;
+    });
+    const full = { ...patch, columnMappings };
+    await dbClient.updateCampaign(campaign.id, full);
+    set({ campaign: { ...campaign, ...full } });
   },
 
   refresh: async () => {

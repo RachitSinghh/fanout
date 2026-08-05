@@ -33,7 +33,7 @@ export function Dialog({
       {open && (
         <m.div
           className="fixed inset-0 z-popover flex items-center justify-center"
-          style={{ background: 'rgba(15,23,42,0.45)' }}
+          style={{ background: 'rgba(0,0,0,0.62)' }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -46,7 +46,8 @@ export function Dialog({
             role="dialog"
             aria-modal="true"
             aria-label={title}
-            className="w-[440px] max-w-[90vw] rounded-xl bg-[var(--surface)] p-6 shadow-lg"
+            className="w-[440px] max-w-[90vw] rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6"
+            style={{ boxShadow: '0 24px 64px rgba(0,0,0,0.55)' }}
             initial={{ opacity: 0, scale: 0.96, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98 }}

@@ -40,31 +40,40 @@ function injectButton(ctx: ComposeContext): void {
   btn.setAttribute('role', 'button');
   btn.setAttribute('tabindex', '0');
   btn.setAttribute('aria-label', 'Bulk Personalize with Fanout');
-  btn.textContent = '◆ Bulk Personalize';
-  // Secondary tint, not a solid fill: Gmail's blue "Send" must stay the single
-  // primary CTA — the injected action sits one step below it in the hierarchy.
-  // Inline styles so we don't depend on Gmail's classes or leak our stylesheet.
-  const REST = '#EEF2FF'; // indigo-50
-  const HOVER = '#E0E7FF'; // indigo-100
+  btn.setAttribute('title', 'Bulk Personalize with Fanout'); // hover tooltip
+  // Icon-only, DESIGN.md button-secondary-on-light: white surface + hairline with
+  // the yellow Fanout mark. Compact circle keeps Gmail's blue Send the primary CTA.
+  // The gold app-icon itself is the button — no wrapper chrome.
+  btn.innerHTML =
+    '<svg width="28" height="28" viewBox="0 0 128 128" fill="none" aria-hidden="true">' +
+    '<rect width="128" height="128" rx="30" fill="#E8B04B"/>' +
+    '<g transform="translate(22 22) scale(3.5)">' +
+    '<path d="M22 2 15 22 11 13 2 9 22 2Z" fill="#131209"/>' +
+    '<path d="M22 2 11 13" stroke="#E8B04B" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '</g></svg>';
   btn.style.cssText = [
     'display:inline-flex',
     'align-items:center',
-    'gap:6px',
-    'height:36px',
-    'padding:0 16px',
+    'justify-content:center',
     'margin-left:8px',
-    `background:${REST}`,
-    'color:#4338CA', // indigo-700 — readable on the tint
-    'font:500 13px/1 Inter, Roboto, Arial, sans-serif',
-    'border:1px solid #C7D2FE', // indigo-200
-    'border-radius:18px', // pill, matching Gmail's Send
+    'padding:0',
+    'background:transparent',
+    'border:0',
     'cursor:pointer',
     'user-select:none',
-    'white-space:nowrap',
-    'transition:background 120ms ease',
+    'flex:0 0 auto',
+    'border-radius:8px',
+    'opacity:0.92',
+    'transition:opacity 120ms ease, transform 120ms ease',
   ].join(';');
-  btn.addEventListener('mouseenter', () => (btn.style.background = HOVER));
-  btn.addEventListener('mouseleave', () => (btn.style.background = REST));
+  btn.addEventListener('mouseenter', () => {
+    btn.style.opacity = '1';
+    btn.style.transform = 'scale(1.06)';
+  });
+  btn.addEventListener('mouseleave', () => {
+    btn.style.opacity = '0.92';
+    btn.style.transform = 'scale(1)';
+  });
 
   const open = () => {
     const snapshot = snapshotCompose(ctx);

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { AlertTriangle, Timer, Gauge, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, Timer, Gauge, ShieldCheck, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { MIN_SEND_DELAY_MS } from '@fanout/shared';
 import { useCampaignStore } from '../../../store/campaignStore';
 import { StepLayout } from '../StepLayout';
@@ -38,11 +38,9 @@ export function ReviewStep() {
         </>
       }
     >
-      <h2 className="text-h2">Preview &amp; send options</h2>
-
       {blocking.length > 0 && <MissingTokenBlock tokens={blocking} />}
 
-      <PreviewPane />
+      <PreviewPane noMissing={blocking.length === 0} />
 
       <div className="mt-6">
         <SendOptions />
@@ -74,7 +72,7 @@ function MissingTokenBlock({ tokens }: { tokens: string[] }) {
               value={drafts[t] ?? ''}
               onChange={(e) => setDrafts((d) => ({ ...d, [t]: e.target.value }))}
               placeholder="fallback, e.g. there"
-              className="h-8 flex-1 rounded-md border border-neutral-300 bg-[var(--surface)] px-2 text-body"
+              className="h-8 flex-1 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 text-body"
             />
             <Button
               size="sm"
@@ -90,81 +88,80 @@ function MissingTokenBlock({ tokens }: { tokens: string[] }) {
   );
 }
 
-function PreviewPane() {
+function PreviewPane({ noMissing }: { noMissing: boolean }) {
   const campaign = useCampaignStore((s) => s.campaign)!;
   const recipients = useCampaignStore((s) => s.recipients);
   const sendable = useMemo(() => sendableRecipients(recipients), [recipients]);
   const [idx, setIdx] = useState(0);
-  const [search, setSearch] = useState('');
 
-  const filtered = search
-    ? sendable.filter((r) => r.email.toLowerCase().includes(search.toLowerCase()))
-    : sendable;
-  const current = filtered[Math.min(idx, Math.max(0, filtered.length - 1))] ?? sendable[0];
+  const total = sendable.length;
+  const clamped = Math.min(idx, Math.max(0, total - 1));
+  const current = sendable[clamped];
 
   if (!current) {
-    return (
-      <Callout tone="info">No sendable recipients to preview yet.</Callout>
-    );
+    return <Callout tone="info">No sendable recipients to preview yet.</Callout>;
   }
 
   const rendered = renderForRecipient(campaign, current);
 
   return (
-    <Card>
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="text-h3">Preview</h3>
-        <input
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setIdx(0);
-          }}
-          placeholder="Search by email…"
-          className="h-8 w-48 rounded-md border border-neutral-300 bg-neutral-100 px-2 font-mono text-mono-sm"
-        />
+    <div>
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="text-xl font-semibold">Preview a real row</h2>
+        {noMissing && (
+          <span className="ml-auto inline-flex items-center gap-1.5 text-caption text-brand-400">
+            <CheckCircle2 size={14} /> No missing values
+          </span>
+        )}
       </div>
 
-      {/* Quick sample chips (first 3) */}
-      <div className="mb-3 flex flex-wrap gap-1.5">
-        {filtered.slice(0, 3).map((r, i) => (
-          <button
-            key={r.id}
-            onClick={() => setIdx(i)}
-            className={`rounded-full px-2 py-0.5 font-mono text-caption ${
-              current.id === r.id ? 'bg-brand-600 text-white' : 'bg-neutral-100 text-[var(--text-secondary)]'
-            }`}
-          >
-            {r.email}
-          </button>
-        ))}
-        <span className="self-center text-caption text-[var(--text-muted)]">
-          {filtered.length} match{filtered.length === 1 ? '' : 'es'}
+      {/* Pager */}
+      <div className="mt-4 flex items-center gap-3 text-body">
+        <button
+          aria-label="Previous recipient"
+          onClick={() => setIdx((i) => Math.max(0, i - 1))}
+          disabled={clamped === 0}
+          className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] disabled:opacity-40"
+        >
+          <ChevronLeft size={16} />
+        </button>
+        <span className="font-tnum text-[var(--text-secondary)]">
+          {clamped + 1} of {total}
+        </span>
+        <button
+          aria-label="Next recipient"
+          onClick={() => setIdx((i) => Math.min(total - 1, i + 1))}
+          disabled={clamped >= total - 1}
+          className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] disabled:opacity-40"
+        >
+          <ChevronRight size={16} />
+        </button>
+        <span className="ml-1 truncate rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 font-mono text-mono-sm text-[var(--text-secondary)]">
+          {current.email}
         </span>
       </div>
 
-      {/* Gmail-like message frame */}
-      <div className="rounded-lg border border-[var(--border)]">
-        <div className="border-b border-[var(--border)] px-4 py-3">
-          <p className="text-body-strong">{rendered.subject || <em className="text-[var(--text-muted)]">(no subject)</em>}</p>
-          <p className="mt-1 text-caption text-[var(--text-muted)]">
-            From {campaign.fromName || campaign.fromEmail} &lt;{campaign.fromEmail}&gt;
-          </p>
-          <p className="text-caption text-[var(--text-muted)]">
-            To <span className="font-mono">{current.email}</span>
-          </p>
-        </div>
+      {/* Rendered message */}
+      <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--surface-sunken)] p-5">
+        <p className="text-caption text-[var(--text-muted)]">Subject</p>
+        <p className="mt-1 text-body-strong">
+          {rendered.subject || <span className="text-[var(--text-muted)]">(no subject)</span>}
+        </p>
+        <p className="mt-1 text-caption text-[var(--text-muted)]">
+          To <span className="font-mono">{current.email}</span> · from{' '}
+          {campaign.fromName || campaign.fromEmail}
+        </p>
         <div
-          className="prose max-w-none px-4 py-3 text-body"
+          className="mt-4 max-w-none text-body leading-relaxed text-[var(--text-secondary)]"
           // Body is our own template rendered with HTML-escaped token values.
           dangerouslySetInnerHTML={{ __html: rendered.bodyHtml || '<em>(empty body)</em>' }}
         />
       </div>
-      <p className="mt-2 flex items-center gap-1 text-caption text-[var(--text-muted)]">
-        <ShieldCheck size={12} /> Sent individually — this recipient sees only their
-        own address.
+
+      <p className="mt-2 flex items-center gap-1.5 text-caption text-[var(--text-muted)]">
+        <ShieldCheck size={12} /> Sent individually — this recipient sees only their own address.
       </p>
-    </Card>
+    </div>
   );
 }
 
@@ -181,7 +178,7 @@ function SendOptions() {
   return (
     <Card>
       <div className="flex items-center gap-2">
-        <Timer size={18} className="text-brand-600" />
+        <Timer size={18} className="text-brand-400" />
         <h3 className="text-h3">Delay between sends</h3>
       </div>
       <p className="mt-1 text-body text-[var(--text-secondary)]">
@@ -214,7 +211,7 @@ function SendOptions() {
             onChange={(e) =>
               void setThrottle({ ...throttle, minMs: Math.max(0, Number(e.target.value)) * 1000 })
             }
-            className="ml-2 h-9 w-20 rounded-md border border-neutral-300 bg-neutral-100 px-3 font-mono text-mono-sm"
+            className="ml-2 h-9 w-20 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 font-mono text-mono-sm"
           />
         </label>
         {throttle.mode === 'random' && (
@@ -227,7 +224,7 @@ function SendOptions() {
               onChange={(e) =>
                 void setThrottle({ ...throttle, maxMs: Math.max(0, Number(e.target.value)) * 1000 })
               }
-              className="ml-2 h-9 w-20 rounded-md border border-neutral-300 bg-neutral-100 px-3 font-mono text-mono-sm"
+              className="ml-2 h-9 w-20 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 font-mono text-mono-sm"
             />
           </label>
         )}
@@ -239,7 +236,7 @@ function SendOptions() {
       )}
 
       <div className="mt-5 flex items-center gap-2">
-        <Gauge size={18} className="text-brand-600" />
+        <Gauge size={18} className="text-brand-400" />
         <h3 className="text-h3">Daily cap</h3>
       </div>
       <p className="mt-1 text-body text-[var(--text-secondary)]">
@@ -251,7 +248,7 @@ function SendOptions() {
         placeholder="Auto (safe default)"
         value={campaign.dailyCap ?? ''}
         onChange={(e) => void setDailyCap(e.target.value ? Number(e.target.value) : null)}
-        className="mt-2 h-9 w-40 rounded-md border border-neutral-300 bg-neutral-100 px-3 font-mono text-mono-sm"
+        className="mt-2 h-9 w-40 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 font-mono text-mono-sm"
       />
     </Card>
   );
@@ -271,8 +268,8 @@ function ModeBtn({
       onClick={onClick}
       className={`rounded-md border px-3 py-1.5 text-label transition-colors ${
         active
-          ? 'border-brand-600 bg-brand-50 text-brand-700'
-          : 'border-neutral-300 text-[var(--text-secondary)] hover:bg-neutral-50'
+          ? 'border-brand-600/50 bg-brand-600/15 text-brand-400'
+          : 'border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-sunken)]'
       }`}
     >
       {children}

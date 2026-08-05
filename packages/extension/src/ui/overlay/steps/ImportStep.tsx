@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react';
-import { Upload, ClipboardPaste, FileText, X, AlertTriangle } from 'lucide-react';
+import { useState } from 'react';
+import { UploadCloud, Upload, ClipboardPaste, FileSpreadsheet, X, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { useCampaignStore } from '../../../store/campaignStore';
 import { StepLayout } from '../StepLayout';
 import { Button, Callout } from '../../components/primitives';
@@ -11,6 +11,7 @@ type Method = 'csv' | 'paste';
 export function ImportStep() {
   const goTo = useCampaignStore((s) => s.goTo);
   const applyImport = useCampaignStore((s) => s.applyImport);
+  const setRecipients = useCampaignStore((s) => s.setRecipients);
   const busy = useCampaignStore((s) => s.busy);
   const recipients = useCampaignStore((s) => s.recipients);
   // Default OUTSIDE the selector: returning `?? []` inside makes a fresh array
@@ -23,7 +24,7 @@ export function ImportStep() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [pasteText, setPasteText] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const fileInput = useRef<HTMLInputElement>(null);
+  const [dragActive, setDragActive] = useState(false);
 
   async function ingest(headers: string[], rows: Record<string, string>[]) {
     setError(null);
@@ -57,8 +58,16 @@ export function ImportStep() {
     }
   }
 
+  async function clearImport() {
+    await setRecipients([]);
+    setFileName(null);
+    setPasteText('');
+    setError(null);
+  }
+
   const hasData = recipients.length > 0;
   const canContinue = (summary?.valid ?? 0) > 0;
+  const issues = summary ? summary.invalidEmail + summary.missingEmail + summary.duplicate : 0;
 
   return (
     <StepLayout
@@ -73,82 +82,85 @@ export function ImportStep() {
         </>
       }
     >
-      <h2 className="text-h2">Import recipients</h2>
-      <p className="mt-1 text-body text-[var(--text-secondary)]">
+      <h2 className="text-xl font-semibold">Import recipients</h2>
+      <p className="mt-2 text-body text-[var(--text-secondary)]">
         Upload a CSV or paste rows from a spreadsheet. Everything stays in this
         browser.
       </p>
 
-      <div className="mt-4 flex gap-2">
-        <MethodTab active={method === 'csv'} onClick={() => setMethod('csv')} icon={<Upload size={16} />}>
+      {/* Segmented method control — matches the landing slide */}
+      <div className="mt-5 inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface-sunken)] p-1 text-body">
+        <MethodTab active={method === 'csv'} onClick={() => setMethod('csv')} icon={<Upload size={15} />}>
           Upload CSV
         </MethodTab>
-        <MethodTab active={method === 'paste'} onClick={() => setMethod('paste')} icon={<ClipboardPaste size={16} />}>
+        <MethodTab active={method === 'paste'} onClick={() => setMethod('paste')} icon={<ClipboardPaste size={15} />}>
           Paste
         </MethodTab>
       </div>
 
       <div className="mt-4">
         {method === 'csv' ? (
-          <div
-            onDragOver={(e) => e.preventDefault()}
+          <label
+            onDragEnter={(e) => {
+              e.preventDefault();
+              setDragActive(true);
+            }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragActive(true);
+            }}
+            onDragLeave={(e) => {
+              // Only clear when the pointer actually leaves the label, not when it
+              // crosses onto a child (icon/text) — otherwise the highlight flickers.
+              if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragActive(false);
+            }}
             onDrop={(e) => {
               e.preventDefault();
+              setDragActive(false);
               const f = e.dataTransfer.files[0];
               if (f) void onFile(f);
             }}
-            className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-neutral-300 bg-neutral-50 py-10 text-center"
+            className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-6 py-9 text-center transition-all duration-200 ${
+              dragActive
+                ? 'border-brand-600 bg-brand-600/10'
+                : 'border-[var(--border-strong)] bg-[var(--surface-sunken)] hover:border-brand-600/50'
+            }`}
           >
-            {fileName ? (
-              <div className="flex items-center gap-2 rounded-md bg-[var(--surface)] px-3 py-2 shadow-xs">
-                <FileText size={16} className="text-brand-600" />
-                <span className="text-body">{fileName}</span>
-                <span className="text-caption text-[var(--text-muted)]">
-                  {recipients.length} rows
-                </span>
-                <button
-                  aria-label="Remove file"
-                  onClick={() => {
-                    setFileName(null);
-                    if (fileInput.current) fileInput.current.value = '';
-                  }}
-                  className="ml-1 text-[var(--text-muted)] hover:text-danger-fg"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            ) : (
-              <>
-                <Upload size={24} className="text-[var(--text-muted)]" />
-                <p className="mt-2 text-body text-[var(--text-secondary)]">
-                  Drop a CSV or{' '}
-                  <button
-                    className="font-medium text-brand-600 underline"
-                    onClick={() => fileInput.current?.click()}
-                  >
-                    click to browse
-                  </button>
-                </p>
-              </>
-            )}
+            <UploadCloud
+              className={`${dragActive ? 'text-brand-400' : 'text-[var(--text-muted)]'} transition-transform duration-200 ${dragActive ? 'scale-110' : ''}`}
+              size={30}
+            />
+            <p className="mt-3 text-body text-[var(--text-secondary)]">
+              {dragActive ? (
+                <span className="font-medium text-brand-400">Drop to upload</span>
+              ) : (
+                <>
+                  Drop a CSV or <span className="font-medium text-brand-400 underline">click to browse</span>
+                </>
+              )}
+            </p>
+            {/* Native label→input: clicking anywhere opens the picker, no programmatic
+                .click() (which double-fired and cancelled the dialog). */}
             <input
-              ref={fileInput}
               type="file"
               accept=".csv,text/csv"
-              className="hidden"
+              className="sr-only"
+              onClick={(e) => {
+                (e.currentTarget as HTMLInputElement).value = '';
+              }}
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 if (f) void onFile(f);
               }}
             />
-          </div>
+          </label>
         ) : (
           <div>
             <textarea
               value={pasteText}
               onChange={(e) => setPasteText(e.target.value)}
               placeholder={'email\tFirstName\tCompany\njordan@acme.com\tJordan\tAcme'}
-              className="h-32 w-full resize-none rounded-md border border-neutral-300 bg-neutral-100 p-3 font-mono text-mono-sm"
+              className="h-32 w-full resize-none rounded-lg border border-[var(--border)] bg-[var(--surface-sunken)] p-3 font-mono text-mono-sm"
             />
             <Button className="mt-2" variant="secondary" size="sm" onClick={onParsePaste} loading={busy}>
               Parse pasted rows
@@ -157,16 +169,56 @@ export function ImportStep() {
         )}
       </div>
 
+      {/* Loaded-file result row (with a corner × to clear and re-import) */}
+      {hasData && (
+        <div className="mt-4 flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-sunken)] px-4 py-3">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-600/15 text-brand-400">
+            <FileSpreadsheet size={16} />
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-body font-medium">{fileName ?? 'Pasted rows'}</p>
+            <p className="text-caption text-[var(--text-muted)]">
+              {recipients.length} rows · {headers.length} column{headers.length === 1 ? '' : 's'} detected
+            </p>
+          </div>
+          <span className="ml-auto inline-flex items-center gap-1.5 text-caption text-brand-400">
+            <CheckCircle2 size={14} /> ready
+          </span>
+          <button
+            aria-label="Remove imported list"
+            title="Remove"
+            onClick={() => void clearImport()}
+            className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-[var(--text-muted)] transition-colors hover:bg-[var(--border)] hover:text-danger-fg"
+          >
+            <X size={15} />
+          </button>
+        </div>
+      )}
+
       {error && (
         <Callout tone="danger" icon={<AlertTriangle size={16} />} className="mt-4">
           {error}
         </Callout>
       )}
 
-      {summary && hasData && (
-        <div className="mt-4">
-          <ImportSummaryRow />
-          <PreviewTable headers={headers} />
+      {/* Issue chips only when something needs attention — a clean import stays clean */}
+      {hasData && summary && issues > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-caption">
+          {summary.duplicate > 0 && (
+            <span className="rounded-full bg-warning-bg px-2 py-0.5 text-warning-fg">
+              {summary.duplicate} duplicate{summary.duplicate > 1 ? 's' : ''} skipped
+            </span>
+          )}
+          {summary.invalidEmail > 0 && (
+            <span className="rounded-full bg-warning-bg px-2 py-0.5 text-warning-fg">
+              {summary.invalidEmail} invalid skipped
+            </span>
+          )}
+          {summary.missingEmail > 0 && (
+            <span className="rounded-full bg-warning-bg px-2 py-0.5 text-warning-fg">
+              {summary.missingEmail} missing email
+            </span>
+          )}
         </div>
       )}
     </StepLayout>
@@ -187,90 +239,14 @@ function MethodTab({
   return (
     <button
       onClick={onClick}
-      className={`inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-label transition-colors ${
+      className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-label transition-colors ${
         active
-          ? 'border-brand-600 bg-brand-50 text-brand-700'
-          : 'border-neutral-300 text-[var(--text-secondary)] hover:bg-neutral-50'
+          ? 'bg-brand-600/15 font-semibold text-brand-400'
+          : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
       }`}
     >
       {icon}
       {children}
     </button>
-  );
-}
-
-function ImportSummaryRow() {
-  const s = useCampaignStore((st) => st.importSummary);
-  if (!s) return null;
-  const issues = s.invalidEmail + s.missingEmail + s.duplicate;
-  return (
-    <div className="mb-2 flex flex-wrap items-center gap-2 text-caption">
-      <span className="rounded-full bg-success-bg px-2 py-0.5 text-success-fg">
-        {s.valid} ready
-      </span>
-      {s.duplicate > 0 && (
-        <span className="rounded-full bg-warning-bg px-2 py-0.5 text-warning-fg">
-          {s.duplicate} duplicate{s.duplicate > 1 ? 's' : ''} skipped
-        </span>
-      )}
-      {s.invalidEmail > 0 && (
-        <span className="rounded-full bg-warning-bg px-2 py-0.5 text-warning-fg">
-          {s.invalidEmail} invalid skipped
-        </span>
-      )}
-      {s.missingEmail > 0 && (
-        <span className="rounded-full bg-warning-bg px-2 py-0.5 text-warning-fg">
-          {s.missingEmail} missing email
-        </span>
-      )}
-      {issues === 0 && (
-        <span className="text-[var(--text-muted)]">No issues detected</span>
-      )}
-    </div>
-  );
-}
-
-function PreviewTable({ headers }: { headers: string[] }) {
-  const recipients = useCampaignStore((s) => s.recipients);
-  const preview = recipients.slice(0, 5);
-  if (headers.length === 0) return null;
-  return (
-    <div className="overflow-x-auto rounded-lg border border-[var(--border)]">
-      <table className="w-full border-collapse text-body">
-        <thead>
-          <tr className="bg-[var(--surface-sunken)] text-left">
-            <th className="px-3 py-2 text-overline uppercase text-[var(--text-muted)]">Status</th>
-            {headers.map((h) => (
-              <th key={h} className="px-3 py-2 font-mono text-caption text-[var(--text-muted)]">
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {preview.map((r) => (
-            <tr key={r.id} className="border-t border-[var(--border)]">
-              <td className="px-3 py-2">
-                {r.status === 'skipped' ? (
-                  <span className="text-caption text-warning-fg">skipped</span>
-                ) : (
-                  <span className="text-caption text-success-fg">ready</span>
-                )}
-              </td>
-              {headers.map((h) => (
-                <td key={h} className="max-w-[160px] truncate px-3 py-2">
-                  {r.fields[h] ?? ''}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {recipients.length > 5 && (
-        <p className="px-3 py-2 text-caption text-[var(--text-muted)]">
-          + {recipients.length - 5} more rows
-        </p>
-      )}
-    </div>
   );
 }

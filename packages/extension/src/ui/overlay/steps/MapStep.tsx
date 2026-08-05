@@ -1,4 +1,4 @@
-import { AlertTriangle, Braces, Mail } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Mail } from 'lucide-react';
 import type { TokenMapping } from '@fanout/shared';
 import { useCampaignStore } from '../../../store/campaignStore';
 import { StepLayout } from '../StepLayout';
@@ -54,38 +54,38 @@ export function MapStep() {
         </>
       }
     >
-      <h2 className="text-h2">Map columns to tokens</h2>
-      <p className="mt-1 text-body text-[var(--text-secondary)]">
-        We auto-detected these from your headers. Adjust any mapping if needed.
+      <h2 className="text-xl font-semibold">Map your columns</h2>
+      <p className="mt-2 text-body text-[var(--text-secondary)]">
+        Headers were matched to tokens automatically. Adjust any that look off.
       </p>
 
-      <div className="mt-4 flex flex-col gap-2">
-        <MappingRow
-          required
-          icon={<Mail size={16} className="text-brand-600" />}
-          label="Email address"
-          mapping={emailMapping}
-          headers={headers}
-          onChange={(col) => void updateMapping('email', col)}
-        />
-
-        {tokenMappings.length > 0 && (
-          <p className="mt-3 text-overline uppercase text-[var(--text-muted)]">
-            Body tokens
-          </p>
-        )}
+      <div className="mt-5 flex flex-col gap-3">
         {tokenMappings.map((m) => (
           <MappingRow
             key={m.token}
-            icon={<Braces size={16} className="text-brand-500" />}
-            label={`{{${m.token}}}`}
-            mono
+            token={m.token}
             mapping={m}
             headers={headers}
             onChange={(col) => void updateMapping(m.token, col)}
           />
         ))}
+        <MappingRow
+          email
+          token="email"
+          mapping={emailMapping}
+          headers={headers}
+          onChange={(col) => void updateMapping('email', col)}
+        />
       </div>
+
+      {tokenMappings.length === 0 && (
+        <div className="mt-3 rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface-sunken)] px-4 py-3 text-caption text-[var(--text-muted)]">
+          No personalization tokens in your draft yet. Add{' '}
+          <span className="font-mono text-brand-400">{'{{FirstName}}'}</span> (or any{' '}
+          <span className="font-mono">{'{{token}}'}</span>) to your Gmail message and it'll show up
+          here to map to a column.
+        </div>
+      )}
 
       {emailSet && validCount === 0 && (
         <Callout tone="danger" icon={<AlertTriangle size={16} />} className="mt-4">
@@ -113,44 +113,55 @@ export function MapStep() {
 }
 
 function MappingRow({
-  icon,
-  label,
-  mono,
-  required,
+  token,
+  email,
   mapping,
   headers,
   onChange,
 }: {
-  icon: React.ReactNode;
-  label: string;
-  mono?: boolean;
-  required?: boolean;
+  token: string;
+  email?: boolean;
   mapping: TokenMapping | null;
   headers: string[];
   onChange: (column: string | null) => void;
 }) {
+  const needsColumn = email && !mapping?.column;
   return (
-    <div className="flex items-center justify-between gap-4 rounded-lg border border-[var(--border)] p-3">
-      <div className="flex items-center gap-2">
-        {icon}
-        <span className={mono ? 'font-mono text-mono-sm' : 'text-body-strong'}>{label}</span>
-        {required && <span className="text-brand-600">*</span>}
-        {mapping?.auto && mapping.column && <Badge tone="info">auto</Badge>}
-      </div>
+    <div className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-sunken)] px-4 py-3 transition-colors hover:border-[var(--border-strong)]">
       <select
         value={mapping?.column ?? ''}
         onChange={(e) => onChange(e.target.value || null)}
-        className={`h-9 min-w-[200px] rounded-md border bg-neutral-100 px-3 text-body ${
-          required && !mapping?.column ? 'border-danger-fg' : 'border-neutral-300'
+        className={`h-8 min-w-[170px] rounded-lg border bg-[var(--surface)] px-3 text-body ${
+          needsColumn ? 'border-danger-fg' : 'border-[var(--border)]'
         }`}
       >
-        <option value="">— not mapped —</option>
+        <option value="">— choose column —</option>
         {headers.map((h) => (
           <option key={h} value={h}>
             {h}
           </option>
         ))}
       </select>
+
+      <ArrowRight size={16} className="shrink-0 text-[var(--text-muted)]" />
+
+      {email ? (
+        <span className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-1.5 text-body">
+          <Mail size={14} className="text-[var(--text-muted)]" /> Recipient
+        </span>
+      ) : (
+        <span className="rounded-lg bg-brand-600/15 px-3 py-1.5 font-mono text-mono-sm text-brand-400">
+          {`{{${token}}}`}
+        </span>
+      )}
+
+      <span className="ml-auto shrink-0">
+        {email ? (
+          <span className="text-caption text-[var(--text-muted)]">required</span>
+        ) : mapping?.auto && mapping.column ? (
+          <Badge tone="info">auto</Badge>
+        ) : null}
+      </span>
     </div>
   );
 }

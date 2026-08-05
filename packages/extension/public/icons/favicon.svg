@@ -1,0 +1,8 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Fanout mark — matches landing page: ink paper-plane on a gold rounded square. -->
+  <rect width="128" height="128" rx="30" fill="#E8B04B"/>
+  <g transform="translate(22 22) scale(3.5)">
+    <path d="M22 2 15 22 11 13 2 9 22 2Z" fill="#131209"/>
+    <path d="M22 2 11 13" stroke="#E8B04B" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

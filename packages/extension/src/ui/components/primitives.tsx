@@ -7,11 +7,11 @@ type Size = 'sm' | 'md' | 'lg';
 
 const VARIANT: Record<Variant, string> = {
   primary:
-    'bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-800 disabled:bg-brand-200 disabled:text-white/70',
+    'bg-brand-600 text-[#131209] hover:bg-brand-700 active:bg-brand-700 disabled:bg-brand-950 disabled:text-neutral-500',
   secondary:
-    'bg-[var(--surface)] text-[var(--text-primary)] border border-neutral-300 hover:bg-neutral-50 active:bg-neutral-100 disabled:bg-neutral-100 disabled:text-neutral-400',
+    'bg-[var(--surface)] text-[var(--text-primary)] border border-[var(--border-strong)] hover:bg-[var(--surface-sunken)] active:bg-neutral-100 disabled:bg-neutral-100 disabled:text-neutral-400',
   ghost:
-    'bg-transparent text-brand-600 hover:bg-brand-50 active:bg-brand-100 disabled:text-neutral-400',
+    'bg-transparent text-[var(--text-primary)] hover:bg-[var(--surface-sunken)] active:bg-neutral-100 disabled:text-neutral-400',
   danger:
     'bg-danger-fg text-white hover:bg-[#991B1B] active:bg-[#7F1D1D] disabled:opacity-60',
 };
@@ -61,7 +61,7 @@ export function Card({
 }) {
   return (
     <div
-      className={`rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-sm ${roomy ? 'p-6' : 'p-4'} ${className}`}
+      className={`rounded-lg border border-[var(--border)] bg-[var(--surface-sunken)] ${roomy ? 'p-6' : 'p-4'} ${className}`}
     >
       {children}
     </div>
@@ -117,11 +117,24 @@ export function Badge({
   );
 }
 
+/** Fanout mark — ink paper-plane on a gold rounded square (matches landing + icon). */
+export function FanMark({ size = 22 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 128 128" fill="none" aria-hidden="true">
+      <rect width="128" height="128" rx="30" fill="#E8B04B" />
+      <g transform="translate(22 22) scale(3.5)">
+        <path d="M22 2 15 22 11 13 2 9 22 2Z" fill="#131209" />
+        <path d="M22 2 11 13" stroke="#E8B04B" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+      </g>
+    </svg>
+  );
+}
+
 export function Wordmark({ className = '' }: { className?: string }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 font-sans font-bold ${className}`}>
-      <span className="text-brand-600">◆</span>
-      <span className="text-[var(--text-primary)]">Fanout</span>
+    <span className={`inline-flex items-center gap-1.5 font-sans font-bold text-[var(--text-primary)] ${className}`}>
+      <FanMark size={18} />
+      <span>Fanout</span>
     </span>
   );
 }
