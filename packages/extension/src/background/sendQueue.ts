@@ -64,6 +64,7 @@ export async function handleSendRequest(req: Request): Promise<unknown> {
 export async function resumeSending(): Promise<void> {
   const active = await db.campaigns.where('status').equals('sending').first();
   if (active) {
+    await reclaimOrphans(active.id);
     logger.info('resuming in-flight campaign', { campaignId: active.id });
     scheduleTick(0);
     return;
@@ -296,6 +297,31 @@ async function sendOne(campaign: Campaign, recipient: Recipient, fromName: strin
       return;
     }
   }
+}
+
+/**
+ * A recipient left in `sending` when the worker restarts was claimed by a tick
+ * that never recorded an outcome (worker died mid-send). We can't know whether
+ * Gmail accepted it, so we don't auto-requeue — that could double-send, which
+ * §7.5 treats as the worse failure. Mark it `failed` so it surfaces in the
+ * report and the user can choose "Retry failed".
+ * ponytail: at-most-once on the post-ACK/pre-write micro-window; a dedup key
+ * (X-Fanout-Id header + inbox check) would make it exactly-once if it matters.
+ */
+async function reclaimOrphans(campaignId: string): Promise<void> {
+  const orphans = await db.recipients
+    .where('[campaignId+status]')
+    .equals([campaignId, 'sending'])
+    .toArray();
+  if (orphans.length === 0) return;
+  for (const r of orphans) {
+    await db.recipients.update(r.id, {
+      status: 'failed',
+      lastError: 'Interrupted mid-send (worker restarted)',
+    });
+  }
+  await recomputeCounts(campaignId);
+  logger.warn('reclaimed interrupted sends', { campaignId, count: orphans.length });
 }
 
 async function complete(campaign: Campaign): Promise<void> {

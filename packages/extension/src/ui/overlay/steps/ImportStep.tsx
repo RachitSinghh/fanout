@@ -13,7 +13,10 @@ export function ImportStep() {
   const applyImport = useCampaignStore((s) => s.applyImport);
   const busy = useCampaignStore((s) => s.busy);
   const recipients = useCampaignStore((s) => s.recipients);
-  const headers = useCampaignStore((s) => s.campaign?.headers ?? []);
+  // Default OUTSIDE the selector: returning `?? []` inside makes a fresh array
+  // every render, which useSyncExternalStore reads as a changed snapshot →
+  // infinite re-render loop (React #185). Select the stable value, default after.
+  const headers = useCampaignStore((s) => s.campaign?.headers) ?? [];
   const summary = useCampaignStore((s) => s.importSummary);
 
   const [method, setMethod] = useState<Method>('csv');

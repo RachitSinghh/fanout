@@ -1,9 +1,13 @@
 import { defineManifest } from '@crxjs/vite-plugin';
+import { loadEnv } from 'vite';
 
 // The OAuth client id is public (a "Chrome App" client). It is safe to bundle.
-// Read from Vite env at config time; fall back to a placeholder for scaffolding.
+// Load .env here directly: this module is imported by vite.config *before* its
+// defineConfig callback runs loadEnv, so reading process.env would always miss
+// the value and fall back to the placeholder. loadEnv reads `.env` for any mode.
+const env = loadEnv(process.env.NODE_ENV ?? 'production', process.cwd(), 'VITE_');
 const CLIENT_ID =
-  process.env.VITE_GOOGLE_OAUTH_CLIENT_ID ??
+  env.VITE_GOOGLE_OAUTH_CLIENT_ID ||
   'REPLACE_WITH_CHROME_APP_OAUTH_CLIENT_ID.apps.googleusercontent.com';
 
 export default defineManifest({

@@ -1,4 +1,5 @@
-import { X, Check } from 'lucide-react';
+import { useState } from 'react';
+import { X, Check, FileText } from 'lucide-react';
 import { useCampaignStore, STEP_ORDER, STEP_LABELS, type Step } from '../../store/campaignStore';
 import { Wordmark } from '../components/primitives';
 import { ImportStep } from './steps/ImportStep';
@@ -6,27 +7,41 @@ import { MapStep } from './steps/MapStep';
 import { ReviewStep } from './steps/ReviewStep';
 import { SendStep } from './steps/SendStep';
 import { ReportStep } from './steps/ReportStep';
+import { TemplatesDialog } from './TemplatesDialog';
 
 export function CampaignPanel({ onClose }: { onClose: () => void }) {
   const step = useCampaignStore((s) => s.step);
   const campaign = useCampaignStore((s) => s.campaign);
   const sending = campaign?.status === 'sending';
+  const [templatesOpen, setTemplatesOpen] = useState(false);
 
   return (
     <>
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-[var(--border)] px-6">
         <Wordmark className="text-h3" />
         <Stepper current={step} />
-        <button
-          aria-label="Close"
-          onClick={onClose}
-          disabled={sending}
-          className="rounded-md p-1 text-[var(--text-muted)] transition-colors hover:bg-neutral-100 disabled:opacity-40"
-        >
-          <X size={20} />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            aria-label="Templates"
+            onClick={() => setTemplatesOpen(true)}
+            disabled={sending}
+            className="flex items-center gap-1.5 rounded-md px-2 py-1 text-label text-[var(--text-secondary)] transition-colors hover:bg-neutral-100 disabled:opacity-40"
+          >
+            <FileText size={16} />
+            Templates
+          </button>
+          <button
+            aria-label="Close"
+            onClick={onClose}
+            disabled={sending}
+            className="rounded-md p-1 text-[var(--text-muted)] transition-colors hover:bg-neutral-100 disabled:opacity-40"
+          >
+            <X size={20} />
+          </button>
+        </div>
       </header>
       <StepRouter step={step} />
+      <TemplatesDialog open={templatesOpen} onClose={() => setTemplatesOpen(false)} />
     </>
   );
 }

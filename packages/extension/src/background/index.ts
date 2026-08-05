@@ -4,6 +4,12 @@ import * as auth from '../services/authService';
 import { sendRawEmail } from './gmailClient';
 import { buildRawMessage } from '../services/mimeBuilder';
 import * as data from '../db/campaigns';
+import * as templates from '../db/templates';
+// Static import: the send engine registers a top-level chrome.alarms listener as
+// a side effect, which MV3 requires to run synchronously on worker load (an async
+// import()s listener can miss the very alarm that woke the worker). It also keeps
+// the SW off Vite's __vitePreload helper, which references window/document.
+import { resumeSending, handleSendRequest } from './sendQueue';
 
 logger.info('service worker started');
 
@@ -18,8 +24,6 @@ chrome.runtime.onStartup.addListener(() => {
 });
 
 async function resumeInFlight(): Promise<void> {
-  // Implemented by the send engine (TICKET-009). No-op until then.
-  const { resumeSending } = await import('./sendQueue');
   await resumeSending();
 }
 
@@ -58,8 +62,7 @@ async function handle(req: Request): Promise<unknown> {
     case 'SEND_CANCEL':
     case 'SEND_RETRY_FAILED':
     case 'SEND_GET_PROGRESS': {
-      const engine = await import('./sendQueue');
-      return engine.handleSendRequest(req);
+      return handleSendRequest(req);
     }
     case 'DATA_CAMPAIGN_CREATE':
       return data.createDraftCampaign(req.compose);
@@ -80,6 +83,13 @@ async function handle(req: Request): Promise<unknown> {
       return data.listRecipients(req.campaignId);
     case 'DATA_SENDLOGS_LIST':
       return data.listSendLogs(req.campaignId);
+    case 'DATA_TEMPLATE_SAVE':
+      return templates.saveTemplate(req.template);
+    case 'DATA_TEMPLATE_LIST':
+      return templates.listTemplates();
+    case 'DATA_TEMPLATE_DELETE':
+      await templates.deleteTemplate(req.id);
+      return { ok: true };
     default: {
       const _exhaustive: never = req;
       throw new Error(`Unknown request: ${JSON.stringify(_exhaustive)}`);
@@ -103,6 +113,3 @@ chrome.runtime.onMessage.addListener((msg: unknown, _sender, sendResponse) => {
     );
   return true; // keep the message channel open for the async response
 });
-
-// The alarms listener is registered by the send engine; import for side effects.
-void import('./sendQueue');

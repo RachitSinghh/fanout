@@ -1,5 +1,5 @@
-import type { Campaign, Recipient, SendLog } from '@fanout/shared';
-import { sendToWorker, type ComposeInput } from '../messaging/channel';
+import type { Campaign, Recipient, SendLog, Template } from '@fanout/shared';
+import { sendToWorker, type ComposeInput, type TemplateInput } from '../messaging/channel';
 
 /**
  * Uniform campaign/recipient data access for ALL UI surfaces, routed through
@@ -31,4 +31,13 @@ export const dbClient = {
 
   listSendLogs: (campaignId: string): Promise<SendLog[]> =>
     sendToWorker({ type: 'DATA_SENDLOGS_LIST', campaignId }),
+
+  saveTemplate: (template: TemplateInput): Promise<Template> =>
+    sendToWorker({ type: 'DATA_TEMPLATE_SAVE', template }),
+
+  listTemplates: (): Promise<Template[]> =>
+    sendToWorker({ type: 'DATA_TEMPLATE_LIST' }),
+
+  deleteTemplate: (id: string): Promise<{ ok: true }> =>
+    sendToWorker({ type: 'DATA_TEMPLATE_DELETE', id }),
 };

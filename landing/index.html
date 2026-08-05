@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="en" class="dark scroll-smooth">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fanout — personalized bulk email from your own Gmail</title>
+  <meta name="description" content="Fanout is a Chrome extension that sends N individual emails, one gmail.send per recipient, with per recipient personalization, randomized throttling, and a daily cap that protects your account. No server, your list never leaves the browser." />
+  <meta property="og:title" content="Fanout — personalized bulk email from your own Gmail" />
+  <meta property="og:description" content="One real email per person, personalized, throttled, and safe. Runs entirely in your browser." />
+  <meta property="og:type" content="website" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%23E8B04B'/><path d='M28 34h44M28 50h30M28 66h18' stroke='%23131209' stroke-width='8' stroke-linecap='round'/></svg>" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Geist', 'system-ui', 'sans-serif'],
+            mono: ['"Geist Mono"', 'ui-monospace', 'monospace'],
+          },
+          colors: {
+            ink: '#000000',
+            surface: '#181818',
+            raised: '#1F1F1F',
+            line: '#272727',
+            hi: '#313131',
+            warm: '#131209',
+            accent: '#E8B04B',
+          },
+        },
+      },
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/motion@11.11.13/dist/motion.js"></script>
+
+  <style>
+    html, body { background: #000; }
+    ::selection { background: #E8B04B; color: #131209; }
+    .heading-grad {
+      background: linear-gradient(90deg, #FFFFFF 0%, #9B9B9B 100%);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .ease-fluid { transition-timing-function: cubic-bezier(0.32, 0.72, 0, 1); }
+    /* scroll reveal — GSAP drives these; this is just the hidden baseline (no FOUC) */
+    .js .reveal { opacity: 0; }
+    /* tagline words */
+    .word { color: rgba(255,255,255,0.28); }
+    .word.lit { color: #FFFFFF; }
+    .nav-pill { will-change: transform; }
+    a.bg-accent, .btn-magnetic { will-change: transform; }
+    @media (prefers-reduced-motion: reduce) {
+      .js .reveal { opacity: 1 !important; }
+    }
+    /* send progress shimmer */
+    @keyframes fill { from { width: 0 } to { width: 62% } }
+    .bar-fill { animation: fill 2.6s cubic-bezier(0.32,0.72,0,1) forwards; }
+    .focus-ring:focus-visible { outline: 2px solid #E8B04B; outline-offset: 2px; border-radius: 8px; }
+    /* custom cursor */
+    #cursor { position: fixed; top: 0; left: 0; z-index: 9999; pointer-events: none;
+      opacity: 0; transform-origin: 3px 2px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.55)); }
+    @media (pointer: fine) { html.cursor-on, html.cursor-on * { cursor: none !important; } }
+    @media (pointer: coarse) { #cursor { display: none; } }
+  </style>
+</head>
+<body class="bg-ink text-white font-sans antialiased" style="text-wrap: pretty;">
+  <script>document.documentElement.classList.add('js')</script>
+
+  <!-- Custom arrow cursor (desktop only) -->
+  <div id="cursor" aria-hidden="true">
+    <svg viewBox="0 0 24 24" width="26" height="26">
+      <path d="M3 2 L3 19.5 L16.5 13.5 Z"
+        fill="#000000" stroke="#FFFFFF" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" />
+    </svg>
+  </div>
+
+  <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-accent focus:text-warm focus:px-3 focus:py-2 focus:rounded-lg text-sm font-semibold">Skip to content</a>
+
+  <!-- NAV: floating glass island -->
+  <header class="fixed inset-x-0 top-0 z-40">
+    <nav class="nav-pill mt-6 mx-auto w-max max-w-[calc(100%-2rem)] flex items-center gap-6 rounded-full border border-white/10 bg-white/5 backdrop-blur-2xl px-3 py-2 ease-fluid transition-all duration-700">
+      <a href="#main" class="flex items-center gap-2 pl-2 focus-ring">
+        <span class="grid h-7 w-7 place-items-center rounded-lg bg-accent text-warm"><i class="ph-bold ph-paper-plane-tilt text-base"></i></span>
+        <span class="font-semibold tracking-tight">Fanout</span>
+      </a>
+      <div class="hidden md:flex items-center gap-6 text-sm text-white/70">
+        <a href="#how" class="hover:text-white ease-fluid transition-colors duration-300 focus-ring">How it works</a>
+        <a href="#safety" class="hover:text-white ease-fluid transition-colors duration-300 focus-ring">Safety</a>
+        <a href="#faq" class="hover:text-white ease-fluid transition-colors duration-300 focus-ring">FAQ</a>
+      </div>
+      <a href="#install" class="rounded-full bg-accent text-warm text-sm font-semibold px-3 py-2 ease-fluid transition-all duration-500 hover:scale-[1.03] active:scale-[0.98] focus-ring">Add to Chrome</a>
+    </nav>
+  </header>
+
+  <main id="main">
+
+    <!-- HERO -->
+    <section class="relative px-4 pt-40 pb-24 md:pt-48 md:pb-28">
+      <div class="mx-auto max-w-3xl text-center">
+        <span class="reveal inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70">
+          <i class="ph ph-lock-simple text-accent"></i> No server. Your list never leaves the browser.
+        </span>
+        <h1 class="reveal mt-6 mx-auto max-w-[680px] text-4xl md:text-6xl font-semibold tracking-tight heading-grad" style="text-wrap: balance;">
+          Personalized outreach<br/>from your own Gmail,<br/>one real email at a time
+        </h1>
+        <p class="reveal mt-6 mx-auto max-w-[680px] text-lg text-white/70">
+          Fanout sends N individual emails, one <code class="font-mono text-accent text-base">gmail.send</code> per person, with per recipient tokens, randomized throttling, and a daily cap that protects your account.
+        </p>
+        <div class="reveal mt-8 flex flex-col sm:flex-row items-center justify-center gap-3" id="install">
+          <a href="#install" class="w-full sm:w-auto rounded-xl bg-accent text-warm text-base font-semibold px-6 py-3 ease-fluid transition-all duration-500 hover:scale-[1.03] active:scale-[0.98] focus-ring inline-flex items-center justify-center gap-2">
+            <i class="ph-bold ph-google-chrome-logo"></i> Add to Chrome — free
+          </a>
+          <a href="#how" class="w-full sm:w-auto rounded-xl border border-white/15 bg-white/5 text-base font-semibold px-6 py-3 ease-fluid transition-all duration-500 hover:bg-white/10 active:scale-[0.98] focus-ring inline-flex items-center justify-center gap-2">
+            See how it sends
+          </a>
+        </div>
+        <p class="reveal mt-4 text-sm text-white/45">Free while in beta · Works with consumer Gmail and Workspace</p>
+      </div>
+
+      <!-- HERO VISUAL: compose overlay mock -->
+      <div class="reveal mx-auto mt-16 max-w-4xl">
+        <div id="hero-card" class="rounded-2xl border border-line bg-surface p-2 shadow-2xl shadow-black/60">
+          <div class="rounded-xl border border-line bg-raised overflow-hidden">
+            <!-- window chrome -->
+            <div class="flex items-center gap-2 border-b border-line px-4 py-3">
+              <span class="h-3 w-3 rounded-full bg-hi"></span>
+              <span class="h-3 w-3 rounded-full bg-hi"></span>
+              <span class="h-3 w-3 rounded-full bg-hi"></span>
+              <span class="ml-3 text-sm text-white/40 font-mono">mail.google.com</span>
+              <span class="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-accent/15 text-accent px-3 py-1 text-sm font-semibold"><i class="ph ph-users-three"></i> Bulk Personalize</span>
+            </div>
+            <div class="grid md:grid-cols-2 gap-px bg-line">
+              <!-- editor -->
+              <div class="bg-raised p-6">
+                <p class="text-sm text-white/40 mb-3">Subject</p>
+                <div class="rounded-lg border border-line bg-surface px-3 py-2 text-sm">
+                  Quick question, <span class="rounded bg-accent/15 text-accent px-1.5 py-0.5 font-mono">{{FirstName|there}}</span>
+                </div>
+                <p class="text-sm text-white/40 mt-5 mb-3">Body</p>
+                <div class="rounded-lg border border-line bg-surface px-3 py-3 text-sm leading-relaxed text-white/80 space-y-3">
+                  <p>Hi <span class="rounded bg-accent/15 text-accent px-1.5 py-0.5 font-mono">{{FirstName}}</span>,</p>
+                  <p>Saw that <span class="rounded bg-accent/15 text-accent px-1.5 py-0.5 font-mono">{{Company}}</span> just opened its Denver office. Congrats on the move.</p>
+                  <p class="text-white/40">Best,<br/>Nita</p>
+                </div>
+              </div>
+              <!-- send progress -->
+              <div class="bg-raised p-6">
+                <div class="flex items-center justify-between">
+                  <p class="text-sm font-semibold">Sending campaign</p>
+                  <span class="inline-flex items-center gap-1.5 text-sm text-accent"><span class="h-2 w-2 rounded-full bg-accent animate-pulse"></span> live</span>
+                </div>
+                <div class="mt-4 h-2 w-full rounded-full bg-surface overflow-hidden">
+                  <div class="bar-fill h-full rounded-full bg-accent"></div>
+                </div>
+                <div class="mt-2 flex justify-between text-sm text-white/45"><span>184 of 297 sent</span><span>next in 14s</span></div>
+
+                <ul class="mt-5 space-y-2 text-sm">
+                  <li class="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2"><i class="ph-bold ph-check-circle text-accent"></i> priya.nair@northwind.co <span class="ml-auto text-white/35 font-mono">sent</span></li>
+                  <li class="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2"><i class="ph-bold ph-check-circle text-accent"></i> deshawn.owens@harbor.io <span class="ml-auto text-white/35 font-mono">sent</span></li>
+                  <li class="flex items-center gap-2 rounded-lg border border-hi bg-surface px-3 py-2"><i class="ph ph-circle-notch text-white/50"></i> mara.koenig@lattice.dev <span class="ml-auto text-accent font-mono">sending</span></li>
+                  <li class="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 opacity-50"><i class="ph ph-clock text-white/40"></i> tomas.rivera@brightpath.app <span class="ml-auto text-white/35 font-mono">queued</span></li>
+                </ul>
+                <p class="mt-4 text-sm text-white/40">Randomized 8 to 30s gap · daily cap 500 of 500 tracked</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STAT BAND -->
+    <section aria-label="Key numbers" class="border-y border-line bg-surface">
+      <div class="mx-auto max-w-5xl px-4 py-12 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+        <div class="reveal"><p class="text-4xl font-semibold heading-grad" data-count="1">1</p><p class="mt-2 text-sm text-white/55">gmail.send per recipient, never a shared BCC</p></div>
+        <div class="reveal"><p class="text-4xl font-semibold heading-grad" data-count="2000">2,000</p><p class="mt-2 text-sm text-white/55">daily cap on Workspace, 500 on consumer Gmail</p></div>
+        <div class="reveal"><p class="text-4xl font-semibold heading-grad" data-count="5000">5,000</p><p class="mt-2 text-sm text-white/55">recipients per campaign, sent one by one</p></div>
+        <div class="reveal"><p class="text-4xl font-semibold heading-grad" data-count="0">0</p><p class="mt-2 text-sm text-white/55">servers, your data stays in the browser</p></div>
+      </div>
+    </section>
+
+    <!-- PROBLEM / SOLUTION -->
+    <section class="px-4 py-24">
+      <div class="mx-auto max-w-3xl text-center reveal">
+        <p class="text-sm font-semibold text-accent">The problem</p>
+        <h2 class="mt-3 text-3xl md:text-4xl font-semibold tracking-tight heading-grad" style="text-wrap: balance;">Mail merge tools route through a stranger's servers</h2>
+        <p class="mt-5 text-lg text-white/65">
+          Most bulk senders upload your contact list to their backend, blast from a shared IP, and put your Gmail reputation in someone else's hands. Fanout does the opposite. It drives your own Gmail from inside the browser, sends each message as a distinct email, and keeps every name, address, and note on your machine.
+        </p>
+      </div>
+    </section>
+
+    <!-- BENEFITS -->
+    <section id="safety" class="px-4 pb-8">
+      <div class="mx-auto max-w-6xl">
+        <div class="reveal mx-auto max-w-2xl text-center mb-14">
+          <h2 class="text-3xl md:text-4xl font-semibold tracking-tight heading-grad" style="text-wrap: balance;">Built to protect the account you send from</h2>
+          <p class="mt-4 text-lg text-white/60">Every design choice bends toward keeping your Gmail healthy.</p>
+        </div>
+        <div class="grid md:grid-cols-3 gap-4">
+          <article class="reveal rounded-2xl border border-line bg-surface p-6 ease-fluid transition-all duration-500 hover:border-hi hover:-translate-y-1">
+            <span class="grid h-11 w-11 place-items-center rounded-xl bg-accent/15 text-accent"><i class="ph-bold ph-brackets-curly text-xl"></i></span>
+            <h3 class="mt-4 text-lg font-semibold">Real personalization with fallbacks</h3>
+            <p class="mt-2 text-white/60 text-base">Drop <code class="font-mono text-accent text-sm">{{FirstName|there}}</code> anywhere in subject or body. Every value is HTML escaped, and an empty token with no fallback blocks the send instead of leaking a literal brace.</p>
+          </article>
+          <article class="reveal rounded-2xl border border-line bg-surface p-6 ease-fluid transition-all duration-500 hover:border-hi hover:-translate-y-1">
+            <span class="grid h-11 w-11 place-items-center rounded-xl bg-accent/15 text-accent"><i class="ph-bold ph-shield-check text-xl"></i></span>
+            <h3 class="mt-4 text-lg font-semibold">Account safety comes first</h3>
+            <p class="mt-2 text-white/60 text-base">A 403 from Gmail stops the whole campaign, not just one send. Daily caps are checked before every network call, and the throttle floor can never drop to zero.</p>
+          </article>
+          <article class="reveal rounded-2xl border border-line bg-surface p-6 ease-fluid transition-all duration-500 hover:border-hi hover:-translate-y-1">
+            <span class="grid h-11 w-11 place-items-center rounded-xl bg-accent/15 text-accent"><i class="ph-bold ph-arrows-clockwise text-xl"></i></span>
+            <h3 class="mt-4 text-lg font-semibold">Resumes exactly where it stopped</h3>
+            <p class="mt-2 text-white/60 text-base">The send queue lives in IndexedDB, so if the browser sleeps the worker mid run, Fanout wakes and picks up the next pending recipient. No double sends, ever.</p>
+          </article>
+          <article class="reveal rounded-2xl border border-line bg-surface p-6 ease-fluid transition-all duration-500 hover:border-hi hover:-translate-y-1">
+            <span class="grid h-11 w-11 place-items-center rounded-xl bg-accent/15 text-accent"><i class="ph-bold ph-lock-key text-xl"></i></span>
+            <h3 class="mt-4 text-lg font-semibold">PII never touches a log</h3>
+            <p class="mt-2 text-white/60 text-base">Names, addresses, and message content stay local and get scrubbed out of every log line. There is no backend to breach because there is no backend.</p>
+          </article>
+          <article class="reveal rounded-2xl border border-line bg-surface p-6 ease-fluid transition-all duration-500 hover:border-hi hover:-translate-y-1">
+            <span class="grid h-11 w-11 place-items-center rounded-xl bg-accent/15 text-accent"><i class="ph-bold ph-timer text-xl"></i></span>
+            <h3 class="mt-4 text-lg font-semibold">Deliverability aware throttling</h3>
+            <p class="mt-2 text-white/60 text-base">Sends land on a randomized 8 to 30 second cadence rather than a robotic tick, so your pattern reads like a human, not a firehose.</p>
+          </article>
+          <article class="reveal rounded-2xl border border-line bg-surface p-6 ease-fluid transition-all duration-500 hover:border-hi hover:-translate-y-1">
+            <span class="grid h-11 w-11 place-items-center rounded-xl bg-accent/15 text-accent"><i class="ph-bold ph-envelope-open text-xl"></i></span>
+            <h3 class="mt-4 text-lg font-semibold">Lives inside Gmail</h3>
+            <p class="mt-2 text-white/60 text-base">A Bulk Personalize button appears right in compose. Replies come back to your inbox, threading and all, because the mail genuinely came from you.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAGLINE REVEAL -->
+    <section class="px-4 py-32">
+      <div id="tagline" class="mx-auto max-w-[680px] text-center text-4xl md:text-5xl font-semibold tracking-tight leading-tight" style="text-wrap: balance;">
+        Not a mass mailer.
+        A personalization tool that treats every recipient
+        as a single, deliberate email from you.
+      </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section id="how" class="px-4 pb-24">
+      <div class="mx-auto max-w-6xl">
+        <div class="reveal mx-auto max-w-2xl text-center mb-14">
+          <p class="text-sm font-semibold text-accent">How it works</p>
+          <h2 class="mt-3 text-3xl md:text-4xl font-semibold tracking-tight heading-grad" style="text-wrap: balance;">Three steps from a list to a warm inbox</h2>
+        </div>
+        <div class="grid md:grid-cols-3 gap-4">
+          <div class="reveal rounded-2xl border border-line bg-surface p-6">
+            <span class="font-mono text-sm text-accent">01</span>
+            <h3 class="mt-3 text-lg font-semibold">Open compose, click Bulk Personalize</h3>
+            <p class="mt-2 text-white/60 text-base">Write your draft with tokens in plain Gmail. Fanout reads the draft straight from the compose window.</p>
+          </div>
+          <div class="reveal rounded-2xl border border-line bg-surface p-6">
+            <span class="font-mono text-sm text-accent">02</span>
+            <h3 class="mt-3 text-lg font-semibold">Paste your list, map the columns</h3>
+            <p class="mt-2 text-white/60 text-base">Headers like first name and company map to tokens automatically. Fix any mapping, preview a real row, and Fanout flags missing values before you send.</p>
+          </div>
+          <div class="reveal rounded-2xl border border-line bg-surface p-6">
+            <span class="font-mono text-sm text-accent">03</span>
+            <h3 class="mt-3 text-lg font-semibold">Send and watch it go</h3>
+            <p class="mt-2 text-white/60 text-base">One email leaves at a time on a randomized gap. Live progress shows sent, sending, and queued, and you can pause whenever you want.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PROOF -->
+    <section class="px-4 pb-24">
+      <div class="mx-auto max-w-6xl">
+        <div class="reveal mx-auto max-w-2xl text-center mb-14">
+          <h2 class="text-3xl md:text-4xl font-semibold tracking-tight heading-grad" style="text-wrap: balance;">People who send from their own name, not a blast IP</h2>
+        </div>
+        <div class="grid md:grid-cols-3 gap-4">
+          <figure class="reveal rounded-2xl border border-line bg-surface p-6">
+            <blockquote class="text-base text-white/80">Reply rate on my seed round outreach went from a trickle to real conversations. It sends from my actual Gmail, so it threads and it does not look like a broadcast.</blockquote>
+            <figcaption class="mt-5 flex items-center gap-3">
+              <span class="grid h-9 w-9 place-items-center rounded-full bg-accent text-warm font-semibold text-sm">PR</span>
+              <span><span class="block text-sm font-semibold">Priya Raman</span><span class="block text-sm text-white/45">Founder, Northwind Labs</span></span>
+            </figcaption>
+          </figure>
+          <figure class="reveal rounded-2xl border border-line bg-surface p-6">
+            <blockquote class="text-base text-white/80">I recruit for three roles at once and personalize every note. The daily cap warnings stopped me from tripping a Workspace limit the week before a big push.</blockquote>
+            <figcaption class="mt-5 flex items-center gap-3">
+              <span class="grid h-9 w-9 place-items-center rounded-full bg-accent text-warm font-semibold text-sm">DO</span>
+              <span><span class="block text-sm font-semibold">Deshawn Owens</span><span class="block text-sm text-white/45">Talent lead, Harbor</span></span>
+            </figcaption>
+          </figure>
+          <figure class="reveal rounded-2xl border border-line bg-surface p-6">
+            <blockquote class="text-base text-white/80">My laptop slept halfway through a 900 person send and I panicked. Fanout just resumed the next morning at recipient 412 with zero duplicates.</blockquote>
+            <figcaption class="mt-5 flex items-center gap-3">
+              <span class="grid h-9 w-9 place-items-center rounded-full bg-accent text-warm font-semibold text-sm">MK</span>
+              <span><span class="block text-sm font-semibold">Mara Koenig</span><span class="block text-sm text-white/45">Growth, Lattice.dev</span></span>
+            </figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq" class="px-4 pb-24">
+      <div class="mx-auto max-w-3xl">
+        <div class="reveal text-center mb-12">
+          <h2 class="text-3xl md:text-4xl font-semibold tracking-tight heading-grad">Questions worth asking</h2>
+        </div>
+        <div class="reveal divide-y divide-line rounded-2xl border border-line bg-surface">
+          <details class="group p-6" open>
+            <summary class="flex cursor-pointer list-none items-center justify-between font-semibold focus-ring">Is this a mass mailer or spam tool?<i class="ph ph-plus text-white/40 ease-fluid transition-transform duration-500 group-open:rotate-45"></i></summary>
+            <p class="mt-3 text-white/60 text-base">No. Fanout sends one distinct email per recipient with real personalization. There is no shared BCC and no blast. It is meant for warm, individual outreach you would be comfortable sending by hand.</p>
+          </details>
+          <details class="group p-6">
+            <summary class="flex cursor-pointer list-none items-center justify-between font-semibold focus-ring">Will Gmail flag or suspend my account?<i class="ph ph-plus text-white/40 ease-fluid transition-transform duration-500 group-open:rotate-45"></i></summary>
+            <p class="mt-3 text-white/60 text-base">Fanout stays under Gmail's own daily limits, 500 on consumer and 2,000 on Workspace, spaces sends on a randomized 8 to 30 second gap, and halts the entire run the moment Gmail returns a 403. Protecting your account is the whole point.</p>
+          </details>
+          <details class="group p-6">
+            <summary class="flex cursor-pointer list-none items-center justify-between font-semibold focus-ring">Where does my contact list go?<i class="ph ph-plus text-white/40 ease-fluid transition-transform duration-500 group-open:rotate-45"></i></summary>
+            <p class="mt-3 text-white/60 text-base">Nowhere. There is no server. Your list, your draft, and your progress live in the browser's own storage, and personal data is scrubbed from every log.</p>
+          </details>
+          <details class="group p-6">
+            <summary class="flex cursor-pointer list-none items-center justify-between font-semibold focus-ring">What happens if my browser closes mid send?<i class="ph ph-plus text-white/40 ease-fluid transition-transform duration-500 group-open:rotate-45"></i></summary>
+            <p class="mt-3 text-white/60 text-base">The queue is stored on disk, so the next time the extension wakes it resumes at the next pending recipient. A recipient is claimed inside a transaction, so a resume can never send the same person twice.</p>
+          </details>
+          <details class="group p-6">
+            <summary class="flex cursor-pointer list-none items-center justify-between font-semibold focus-ring">Does it work with both consumer Gmail and Workspace?<i class="ph ph-plus text-white/40 ease-fluid transition-transform duration-500 group-open:rotate-45"></i></summary>
+            <p class="mt-3 text-white/60 text-base">Yes. It detects the account type and applies the matching daily cap, and when the type is unknown it defaults to the safer 500 limit.</p>
+          </details>
+          <details class="group p-6">
+            <summary class="flex cursor-pointer list-none items-center justify-between font-semibold focus-ring">What permissions does it ask for?<i class="ph ph-plus text-white/40 ease-fluid transition-transform duration-500 group-open:rotate-45"></i></summary>
+            <p class="mt-3 text-white/60 text-base">Only the scopes needed to send as you: gmail.send plus basic sign in. It cannot read your inbox, and you connect through Google's own OAuth screen.</p>
+          </details>
+          <details class="group p-6">
+            <summary class="flex cursor-pointer list-none items-center justify-between font-semibold focus-ring">How many recipients can one campaign hold?<i class="ph ph-plus text-white/40 ease-fluid transition-transform duration-500 group-open:rotate-45"></i></summary>
+            <p class="mt-3 text-white/60 text-base">Up to 5,000 per campaign. They still go out one at a time under your daily cap, so a large list simply spreads across more days.</p>
+          </details>
+          <details class="group p-6">
+            <summary class="flex cursor-pointer list-none items-center justify-between font-semibold focus-ring">What does it cost?<i class="ph ph-plus text-white/40 ease-fluid transition-transform duration-500 group-open:rotate-45"></i></summary>
+            <p class="mt-3 text-white/60 text-base">Free while in beta. There is no account to create with us and no card required, because everything runs locally against your own Gmail.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- FINAL CTA -->
+    <section class="px-4 pb-28">
+      <div class="reveal mx-auto max-w-4xl rounded-2xl border border-line bg-warm p-10 md:p-16 text-center">
+        <h2 class="mx-auto max-w-[680px] text-3xl md:text-5xl font-semibold tracking-tight heading-grad" style="text-wrap: balance;">Send outreach that reads like it was written for one person</h2>
+        <p class="mx-auto mt-5 max-w-[680px] text-lg text-white/65">Because with Fanout, it was. Add the extension, connect your Gmail, and send a test to yourself in under two minutes.</p>
+        <div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <a href="#install" class="w-full sm:w-auto rounded-xl bg-accent text-warm text-base font-semibold px-6 py-3 ease-fluid transition-all duration-500 hover:scale-[1.03] active:scale-[0.98] focus-ring inline-flex items-center justify-center gap-2">
+            <i class="ph-bold ph-google-chrome-logo"></i> Add to Chrome — free
+          </a>
+          <a href="#how" class="w-full sm:w-auto rounded-xl border border-white/15 bg-white/5 text-base font-semibold px-6 py-3 ease-fluid transition-all duration-500 hover:bg-white/10 active:scale-[0.98] focus-ring">Read the how it works</a>
+        </div>
+        <p class="mt-4 text-sm text-white/40">No credit card · No server · Cancel by uninstalling</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-line px-4 py-12">
+    <div class="mx-auto max-w-6xl flex flex-col md:flex-row items-center justify-between gap-6">
+      <div class="flex items-center gap-2">
+        <span class="grid h-7 w-7 place-items-center rounded-lg bg-accent text-warm"><i class="ph-bold ph-paper-plane-tilt text-base"></i></span>
+        <span class="font-semibold">Fanout</span>
+        <span class="text-sm text-white/40">Personalized bulk email from your own Gmail</span>
+      </div>
+      <nav class="flex items-center gap-6 text-sm text-white/60">
+        <a href="#faq" class="hover:text-white ease-fluid transition-colors duration-300 focus-ring">FAQ</a>
+        <a href="#privacy" class="hover:text-white ease-fluid transition-colors duration-300 focus-ring">Privacy</a>
+        <a href="#terms" class="hover:text-white ease-fluid transition-colors duration-300 focus-ring">Terms</a>
+      </nav>
+    </div>
+    <p class="mx-auto max-w-6xl mt-8 text-sm text-white/30">© 2026 Fanout. Runs entirely in your browser. Fanout is not affiliated with Google. Gmail is a trademark of Google LLC.</p>
+  </footer>
+
+  <script>
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const g = window.gsap;
+    const M = window.Motion;
+    const EASE = 'power3.out';
+    const fluid = [0.32, 0.72, 0, 1];
+
+    // Tagline: split into words so each can light in reading order (done for all paths)
+    const tag = document.getElementById('tagline');
+    const wordList = tag.textContent.trim().split(/\s+/);
+    tag.innerHTML = wordList.map((w) => `<span class="word">${w}</span>`).join(' ');
+    const words = [...tag.querySelectorAll('.word')];
+
+    if (g && !reduced) {
+      g.registerPlugin(ScrollTrigger);
+
+      // --- Hero entrance timeline (above the fold, plays on load) ---
+      const heroEls = g.utils.toArray('main > section:first-of-type .reveal');
+      g.set('.reveal', { opacity: 0, y: 40 });
+      g.timeline({ defaults: { ease: EASE } })
+        .to(heroEls, { opacity: 1, y: 0, filter: 'blur(0px)', duration: 1, stagger: 0.12, delay: 0.15 });
+
+      // --- Everything below the fold reveals on scroll, in staggered batches ---
+      const rest = g.utils.toArray('.reveal').filter((el) => !heroEls.includes(el));
+      ScrollTrigger.batch(rest, {
+        start: 'top 88%',
+        onEnter: (b) => g.to(b, { opacity: 1, y: 0, duration: 0.9, stagger: 0.09, ease: EASE, overwrite: true }),
+      });
+
+      // --- Hero mock parallax (inner card only, so it never fights the reveal) ---
+      g.to('#hero-card', {
+        yPercent: -8, ease: 'none',
+        scrollTrigger: { trigger: '#hero-card', start: 'top 70%', end: 'bottom top', scrub: true },
+      });
+
+      // --- Stat counters roll up as the band enters ---
+      g.utils.toArray('[data-count]').forEach((el) => {
+        const end = +el.dataset.count;
+        const o = { v: 0 };
+        el.textContent = '0';
+        g.to(o, {
+          v: end, duration: 1.6, ease: 'power2.out',
+          scrollTrigger: { trigger: el, start: 'top 90%' },
+          onUpdate: () => { el.textContent = Math.round(o.v).toLocaleString(); },
+        });
+      });
+
+      // --- Tagline: each word warms from muted to white, scrubbed by scroll ---
+      g.to(words, {
+        color: '#FFFFFF', ease: 'none', stagger: 0.4,
+        scrollTrigger: { trigger: '#tagline', start: 'top 78%', end: 'top 32%', scrub: 0.6 },
+      });
+
+      // --- Nav pill firms up once you leave the hero ---
+      const nav = document.querySelector('.nav-pill');
+      ScrollTrigger.create({
+        start: 'top -80',
+        onUpdate: (self) => nav.classList.toggle('shadow-2xl', self.progress > 0 || self.scroll() > 80),
+      });
+    } else {
+      // No GSAP or reduced motion: show everything, light the tagline, keep real numbers
+      document.querySelectorAll('.reveal').forEach((el) => { el.style.opacity = 1; el.style.transform = 'none'; });
+      words.forEach((w) => w.classList.add('lit'));
+    }
+
+    // --- Motion: magnetic pull on the primary CTAs + spring settle back ---
+    if (M && !reduced) {
+      const { animate } = M;
+      document.querySelectorAll('a.bg-accent').forEach((btn) => {
+        btn.addEventListener('pointermove', (e) => {
+          const r = btn.getBoundingClientRect();
+          animate(btn, { x: (e.clientX - r.left - r.width / 2) * 0.28, y: (e.clientY - r.top - r.height / 2) * 0.5 },
+            { duration: 0.4, easing: fluid });
+        });
+        btn.addEventListener('pointerleave', () => animate(btn, { x: 0, y: 0 }, { type: 'spring', stiffness: 160, damping: 14 }));
+      });
+
+      // --- Motion: nav drops in with a spring on load ---
+      const nav = document.querySelector('.nav-pill');
+      animate(nav, { y: [-40, 0], opacity: [0, 1] }, { duration: 0.9, easing: fluid });
+    }
+
+    // --- Custom arrow cursor: glides on desktop, grows over interactive targets ---
+    const cur = document.getElementById('cursor');
+    if (cur && matchMedia('(pointer: fine)').matches) {
+      document.documentElement.classList.add('cursor-on');
+      let hovering = false;
+      const smooth = g && !reduced;
+      const xTo = smooth ? g.quickTo(cur, 'x', { duration: 0.18, ease: 'power3' }) : null;
+      const yTo = smooth ? g.quickTo(cur, 'y', { duration: 0.18, ease: 'power3' }) : null;
+      const scaleTo = (s) => { if (smooth) g.to(cur, { scale: s, duration: 0.25, ease: 'power3' }); };
+
+      window.addEventListener('pointermove', (e) => {
+        if (smooth) { xTo(e.clientX - 3); yTo(e.clientY - 2); }
+        else { cur.style.transform = `translate(${e.clientX - 3}px, ${e.clientY - 2}px)`; }
+        if (cur.style.opacity !== '1') cur.style.opacity = '1';
+      });
+      window.addEventListener('pointerdown', () => scaleTo(hovering ? 1.4 : 0.8));
+      window.addEventListener('pointerup', () => scaleTo(hovering ? 1.7 : 1));
+      document.addEventListener('pointerover', (e) => {
+        if (e.target.closest('a, button, summary, input, [role=button]')) { hovering = true; scaleTo(1.7); }
+      });
+      document.addEventListener('pointerout', (e) => {
+        if (e.target.closest('a, button, summary, input, [role=button]')) { hovering = false; scaleTo(1); }
+      });
+      document.addEventListener('mouseleave', () => { cur.style.opacity = '0'; });
+    }
+  </script>
+</body>
+</html>

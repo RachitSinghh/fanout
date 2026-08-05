@@ -5,6 +5,7 @@ import type {
   Recipient,
   SendLog,
   PauseReason,
+  Template,
 } from '@fanout/shared';
 
 /** Input for creating a draft campaign from a compose window. */
@@ -14,6 +15,15 @@ export interface ComposeInput {
   bodyText: string;
   fromEmail: string;
   fromName: string;
+}
+
+/** Save payload for a template (TICKET-017); omit `id` to create a new one. */
+export interface TemplateInput {
+  id?: string;
+  name: string;
+  subject: string;
+  bodyHtml: string;
+  bodyText: string;
 }
 
 /**
@@ -44,7 +54,11 @@ export type Request =
   | { type: 'DATA_CAMPAIGN_DELETE'; id: string }
   | { type: 'DATA_RECIPIENTS_REPLACE'; campaignId: string; recipients: Recipient[] }
   | { type: 'DATA_RECIPIENTS_LIST'; campaignId: string }
-  | { type: 'DATA_SENDLOGS_LIST'; campaignId: string };
+  | { type: 'DATA_SENDLOGS_LIST'; campaignId: string }
+  // Template library (TICKET-017).
+  | { type: 'DATA_TEMPLATE_SAVE'; template: TemplateInput }
+  | { type: 'DATA_TEMPLATE_LIST' }
+  | { type: 'DATA_TEMPLATE_DELETE'; id: string };
 
 export type RequestType = Request['type'];
 
@@ -88,6 +102,9 @@ export interface ResponseMap {
   DATA_RECIPIENTS_REPLACE: { ok: true };
   DATA_RECIPIENTS_LIST: Recipient[];
   DATA_SENDLOGS_LIST: SendLog[];
+  DATA_TEMPLATE_SAVE: Template;
+  DATA_TEMPLATE_LIST: Template[];
+  DATA_TEMPLATE_DELETE: { ok: true };
 }
 
 /** Wire envelope so the caller can distinguish success from a thrown error. */

@@ -5,8 +5,9 @@ import type {
   TokenMapping,
   ThrottleConfig,
   UserIdentity,
+  Template,
 } from '@fanout/shared';
-import { tokenSchema } from '@fanout/shared';
+import { tokenSchema, templateApplyPatch } from '@fanout/shared';
 import { dbClient } from '../services/dbClient';
 import {
   autoDetectMappings,
@@ -42,6 +43,7 @@ interface CampaignStore {
   setThrottle: (throttle: ThrottleConfig) => Promise<void>;
   setDailyCap: (dailyCap: number | null) => Promise<void>;
   setTokenFallback: (token: string, fallback: string) => Promise<void>;
+  applyTemplate: (template: Template) => Promise<void>;
   refresh: () => Promise<void>;
   goTo: (step: Step) => void;
   reset: () => void;
@@ -162,6 +164,16 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
       bodyHtml: campaign.bodyHtml.replace(re, repl),
       bodyText: campaign.bodyText.replace(re, repl),
     };
+    await dbClient.updateCampaign(campaign.id, patch);
+    set({ campaign: { ...campaign, ...patch } });
+  },
+
+  applyTemplate: async (template) => {
+    const { campaign } = get();
+    if (!campaign) return;
+    // Overwrite subject/body with the template and re-derive the token schema
+    // from the template's own content (TICKET-017).
+    const patch = templateApplyPatch(template);
     await dbClient.updateCampaign(campaign.id, patch);
     set({ campaign: { ...campaign, ...patch } });
   },

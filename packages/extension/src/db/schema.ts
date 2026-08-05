@@ -4,6 +4,7 @@ import type {
   Recipient,
   SendLog,
   SendCounter,
+  Template,
 } from '@fanout/shared';
 
 /** Single-row key/value settings bag. */
@@ -22,6 +23,7 @@ export class FanoutDB extends Dexie {
   sendLogs!: Table<SendLog, string>;
   sendCounters!: Table<SendCounter, string>;
   settings!: Table<SettingRow, string>;
+  templates!: Table<Template, string>;
 
   constructor() {
     super('fanout');
@@ -32,6 +34,10 @@ export class FanoutDB extends Dexie {
       sendLogs: 'id, campaignId, recipientId, timestamp',
       sendCounters: 'id, accountEmail, date',
       settings: 'key',
+    });
+    // v2 adds the reusable template library (TICKET-017).
+    this.version(2).stores({
+      templates: 'id, name, updatedAt',
     });
   }
 }

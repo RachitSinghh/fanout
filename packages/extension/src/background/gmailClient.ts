@@ -51,6 +51,23 @@ async function postSend(raw: string, token: string): Promise<Response> {
 }
 
 /**
+ * A `fetch` rejection (offline, DNS, connection reset) has no HTTP status, so it
+ * can't go through `classify`. The request never reached Gmail, so nothing was
+ * sent — treat it as transient and let the engine requeue with backoff. Without
+ * this the exception escapes to the tick loop and strands the claimed recipient
+ * in `sending` forever (never retried, never failed).
+ */
+function networkError(e: unknown): SendResult {
+  return {
+    ok: false,
+    bucket: 'transient',
+    httpStatus: null,
+    errorCode: 'network',
+    message: e instanceof Error ? e.message : 'Network request failed',
+  };
+}
+
+/**
  * Send one already-built raw MIME message. Handles a single silent token
  * refresh on 401 (FRONTEND_SPEC §8.1) and returns a classified result;
  * retry/backoff scheduling is the send engine's job (TICKET-012).
@@ -69,13 +86,17 @@ export async function sendRawEmail(raw: string): Promise<SendResult> {
     };
   }
 
-  let res = await postSend(raw, token);
+  let res: Response;
+  try {
+    res = await postSend(raw, token);
+  } catch (e) {
+    return networkError(e);
+  }
 
   // On 401, refresh the token once and retry before surfacing an auth error.
   if (res.status === 401) {
     try {
       token = await refreshAccessToken(token);
-      res = await postSend(raw, token);
     } catch {
       return {
         ok: false,
@@ -85,11 +106,21 @@ export async function sendRawEmail(raw: string): Promise<SendResult> {
         message: 'Could not refresh Google access',
       };
     }
+    try {
+      res = await postSend(raw, token);
+    } catch (e) {
+      return networkError(e);
+    }
   }
 
   if (res.ok) {
-    const body = (await res.json()) as { id?: string };
-    return { ok: true, messageId: body.id ?? '' };
+    try {
+      const body = (await res.json()) as { id?: string };
+      return { ok: true, messageId: body.id ?? '' };
+    } catch {
+      // 2xx with an unparseable body — the send succeeded; we just lack the id.
+      return { ok: true, messageId: '' };
+    }
   }
 
   let reason: string | null = null;

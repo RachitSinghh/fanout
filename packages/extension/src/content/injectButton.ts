@@ -26,6 +26,12 @@ export function installComposeWatcher(): void {
 
 function injectButton(ctx: ComposeContext): void {
   if (!ctx.toolbar) return;
+  // ctx.toolbar is the native Send button's immediate wrapper — Gmail's blue
+  // rounded "pill". Appending INTO it makes the blue background wrap our button.
+  // Insert as a sibling AFTER the pill so we sit on the neutral toolbar row.
+  const group = ctx.toolbar;
+  const row = group.parentElement;
+  if (!row) return;
   // Guard against duplicates within this compose.
   if (ctx.container.querySelector(`.${BTN_CLASS}`)) return;
 
@@ -35,7 +41,11 @@ function injectButton(ctx: ComposeContext): void {
   btn.setAttribute('tabindex', '0');
   btn.setAttribute('aria-label', 'Bulk Personalize with Fanout');
   btn.textContent = '◆ Bulk Personalize';
+  // Secondary tint, not a solid fill: Gmail's blue "Send" must stay the single
+  // primary CTA — the injected action sits one step below it in the hierarchy.
   // Inline styles so we don't depend on Gmail's classes or leak our stylesheet.
+  const REST = '#EEF2FF'; // indigo-50
+  const HOVER = '#E0E7FF'; // indigo-100
   btn.style.cssText = [
     'display:inline-flex',
     'align-items:center',
@@ -43,14 +53,18 @@ function injectButton(ctx: ComposeContext): void {
     'height:36px',
     'padding:0 16px',
     'margin-left:8px',
-    'background:#4F46E5',
-    'color:#fff',
-    'font:600 13px/1 Inter, Roboto, Arial, sans-serif',
-    'border-radius:8px',
+    `background:${REST}`,
+    'color:#4338CA', // indigo-700 — readable on the tint
+    'font:500 13px/1 Inter, Roboto, Arial, sans-serif',
+    'border:1px solid #C7D2FE', // indigo-200
+    'border-radius:18px', // pill, matching Gmail's Send
     'cursor:pointer',
     'user-select:none',
     'white-space:nowrap',
+    'transition:background 120ms ease',
   ].join(';');
+  btn.addEventListener('mouseenter', () => (btn.style.background = HOVER));
+  btn.addEventListener('mouseleave', () => (btn.style.background = REST));
 
   const open = () => {
     const snapshot = snapshotCompose(ctx);
@@ -65,5 +79,5 @@ function injectButton(ctx: ComposeContext): void {
     }
   });
 
-  ctx.toolbar.appendChild(btn);
+  row.insertBefore(btn, group.nextSibling);
 }

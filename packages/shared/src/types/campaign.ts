@@ -88,6 +88,21 @@ export interface Recipient {
   sentAt: number | null;
 }
 
+/**
+ * A reusable subject+body template (TICKET-017). Stored locally like campaigns;
+ * `{{Token}}` placeholders are preserved verbatim and re-resolved when the
+ * template is applied to a campaign.
+ */
+export interface Template {
+  id: string;
+  name: string;
+  subject: string;
+  bodyHtml: string;
+  bodyText: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export type SendOutcome =
   | 'success'
   | 'transient_error'
