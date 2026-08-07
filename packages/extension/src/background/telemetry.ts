@@ -3,6 +3,7 @@ import { db } from '../db/schema';
 import { config } from '../lib/config';
 import { logger } from '../lib/logger';
 import { getSetting, SETTING_KEYS } from '../db/settings';
+import * as auth from '../services/authService';
 
 /**
  * Aggregate campaign telemetry (TICKET-034). **Counts and scrubbed error codes
@@ -38,9 +39,14 @@ export function buildTelemetry(campaign: Campaign, errorCodes: string[], extVers
 }
 
 export async function emitCampaignTelemetry(campaign: Campaign): Promise<void> {
-  if (!config.backendUrl) return; // Phase 1: no backend yet — do nothing.
+  if (!config.backendUrl) return; // no backend configured — do nothing.
   const share = await getSetting<boolean>(SETTING_KEYS.shareDiagnostics, true);
   if (!share) return;
+
+  // Attribute to the sending Google account (identity only — the user's OWN sub
+  // and email, never a recipient). Skip if not connected.
+  const identity = await auth.getIdentity();
+  if (!identity) return;
 
   // Distinct error reason codes from the append-only send log (never messages).
   const logs = await db.sendLogs.where('campaignId').equals(campaign.id).toArray();
@@ -49,12 +55,15 @@ export async function emitCampaignTelemetry(campaign: Campaign): Promise<void> {
   const payload = buildTelemetry(campaign, errorCodes, version);
 
   try {
-    // ponytail: unauthenticated for now; Phase 2 (TICKET-038/039) attaches the
-    // verified Google ID token, and the backend host joins host_permissions.
+    // ponytail: advisory/unverified report (SECURITY §3.4) — never a money gate.
+    // A future hardening step can attach a verified Google ID token.
     await fetch(`${config.backendUrl}/api/telemetry`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ campaign: payload }),
+      body: JSON.stringify({
+        account: { sub: identity.sub, email: identity.email },
+        campaign: payload,
+      }),
     });
   } catch (e) {
     // Telemetry must NEVER break a send — swallow and log locally (scrubbed).
