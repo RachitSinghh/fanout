@@ -72,3 +72,26 @@ body {
 .fx-float {
   animation: fanout-float 3s ease-in-out infinite;
 }
+
+/* Custom arrow cursor (desktop only). */
+.fanout-cursor {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0;
+  transform-origin: 3px 2px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
+}
+@media (pointer: fine) {
+  html.cursor-on,
+  html.cursor-on * {
+    cursor: none !important;
+  }
+}
+@media (pointer: coarse) {
+  .fanout-cursor {
+    display: none;
+  }
+}

@@ -8,12 +8,17 @@ import {
 } from '@phosphor-icons/react';
 import { Reveal } from '@/components/marketing/reveal';
 import { ProductTour } from '@/components/marketing/product-tour';
+import { CustomCursor } from '@/components/marketing/custom-cursor';
+import { Magnetic } from '@/components/marketing/magnetic';
+import { CountUp } from '@/components/marketing/count-up';
+import { Tagline } from '@/components/marketing/tagline';
 
 const TOKEN = (t: string) => <span className="rounded bg-accent/15 px-1.5 py-0.5 font-mono text-accent">{`{{${t}}}`}</span>;
 
 export default function Home() {
   return (
     <>
+      <CustomCursor />
       {/* NAV */}
       <header className="fixed inset-x-0 top-0 z-40">
         <nav className="mx-auto mt-6 flex w-max max-w-[calc(100%-2rem)] items-center gap-6 rounded-full border border-white/10 bg-white/5 px-3 py-2 backdrop-blur-2xl">
@@ -26,7 +31,9 @@ export default function Home() {
             <a href="#safety" className="focus-ring transition-colors hover:text-white">Safety</a>
             <a href="#faq" className="focus-ring transition-colors hover:text-white">FAQ</a>
           </div>
-          <a href="#install" className="focus-ring rounded-full bg-accent px-3 py-2 text-sm font-semibold text-warm transition-all hover:scale-[1.03] active:scale-[0.98]">Add to Chrome</a>
+          <Magnetic>
+            <a href="#install" className="focus-ring rounded-full bg-accent px-3 py-2 text-sm font-semibold text-warm transition-all hover:scale-[1.03] active:scale-[0.98]">Add to Chrome</a>
+          </Magnetic>
         </nav>
       </header>
 
@@ -44,9 +51,11 @@ export default function Home() {
               Fanout sends N individual emails, one <code className="font-mono text-base text-accent">gmail.send</code> per person, with per recipient tokens, randomized throttling, and a daily cap that protects your account.
             </p>
             <div id="install" className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <a href="#install" className="focus-ring inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3 text-base font-semibold text-warm transition-all hover:scale-[1.03] active:scale-[0.98] sm:w-auto">
-                <GoogleChromeLogo weight="bold" /> Add to Chrome — free
-              </a>
+              <Magnetic>
+                <a href="#install" className="focus-ring inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3 text-base font-semibold text-warm transition-all hover:scale-[1.03] active:scale-[0.98] sm:w-auto">
+                  <GoogleChromeLogo weight="bold" /> Add to Chrome — free
+                </a>
+              </Magnetic>
               <a href="#how" className="focus-ring inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-6 py-3 text-base font-semibold transition-all hover:bg-white/10 active:scale-[0.98] sm:w-auto">
                 See how it sends
               </a>
@@ -113,14 +122,14 @@ export default function Home() {
         {/* STAT BAND */}
         <section aria-label="Key numbers" className="border-y border-line bg-surface">
           <div className="mx-auto grid max-w-5xl grid-cols-2 gap-8 px-4 py-12 text-center md:grid-cols-4">
-            {[
-              ['1', 'gmail.send per recipient, never a shared BCC'],
-              ['2,000', 'daily cap on Workspace, 500 on consumer Gmail'],
-              ['5,000', 'recipients per campaign, sent one by one'],
-              ['0', 'servers, your data stays in the browser'],
-            ].map(([n, label]) => (
+            {([
+              [1, 'gmail.send per recipient, never a shared BCC'],
+              [2000, 'daily cap on Workspace, 500 on consumer Gmail'],
+              [5000, 'recipients per campaign, sent one by one'],
+              [0, 'servers, your data stays in the browser'],
+            ] as [number, string][]).map(([n, label]) => (
               <Reveal key={label}>
-                <p className="heading-grad text-4xl font-semibold">{n}</p>
+                <p className="heading-grad text-4xl font-semibold"><CountUp to={n} /></p>
                 <p className="mt-2 text-sm text-white/55">{label}</p>
               </Reveal>
             ))}
@@ -156,9 +165,7 @@ export default function Home() {
 
         {/* TAGLINE */}
         <section className="px-4 py-32">
-          <Reveal className="mx-auto max-w-[680px] text-center text-4xl font-semibold leading-tight tracking-tight text-balance md:text-5xl">
-            Not a mass mailer. A personalization tool that treats every recipient as a single, deliberate email from you.
-          </Reveal>
+          <Tagline />
         </section>
 
         {/* HOW IT WORKS */}
@@ -215,7 +222,9 @@ export default function Home() {
             <h2 className="heading-grad mx-auto max-w-[680px] text-3xl font-semibold tracking-tight text-balance md:text-5xl">Send outreach that reads like it was written for one person</h2>
             <p className="mx-auto mt-5 max-w-[680px] text-lg text-white/65">Because with Fanout, it was. Add the extension, connect your Gmail, and send a test to yourself in under two minutes.</p>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <a href="#install" className="focus-ring inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3 text-base font-semibold text-warm transition-all hover:scale-[1.03] active:scale-[0.98] sm:w-auto"><GoogleChromeLogo weight="bold" /> Add to Chrome — free</a>
+              <Magnetic>
+                <a href="#install" className="focus-ring inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3 text-base font-semibold text-warm transition-all hover:scale-[1.03] active:scale-[0.98] sm:w-auto"><GoogleChromeLogo weight="bold" /> Add to Chrome — free</a>
+              </Magnetic>
               <Link href="/dashboard" className="focus-ring inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-6 py-3 text-base font-semibold transition-all hover:bg-white/10 active:scale-[0.98] sm:w-auto">Open dashboard</Link>
             </div>
             <p className="mt-4 text-sm text-white/40">No credit card · No server · Cancel by uninstalling</p>
