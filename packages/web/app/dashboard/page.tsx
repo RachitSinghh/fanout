@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { Card, CardTitle, CardDescription } from '@/components/ui/card';
 import { GoogleSignIn } from '@/components/auth/google-signin';
 import { SignOutButton } from '@/components/auth/sign-out-button';
+import { UpgradeButton } from '@/components/billing/upgrade-button';
 
 export const dynamic = 'force-dynamic'; // reads the session cookie
 
@@ -51,7 +52,16 @@ export default async function DashboardPage() {
         </Card>
         <Card>
           <CardTitle>Billing</CardTitle>
-          <CardDescription>Manage subscription — Lemon Squeezy (TICKET-041).</CardDescription>
+          {plan.tier === 'free' ? (
+            <>
+              <CardDescription>Unlock the full daily cap, scheduling, and attachments.</CardDescription>
+              <UpgradeButton />
+            </>
+          ) : (
+            <CardDescription>
+              <span className="text-brand-400">Pro · active</span> — thanks for the support.
+            </CardDescription>
+          )}
         </Card>
       </div>
     </main>
