@@ -1,0 +1,60 @@
+name: CI
+
+# Runs on every push and PR. Branch protection on `main` requires all four
+# jobs below to pass before a merge is allowed (see repo Settings → Branches,
+# or the gh command in the PR description that set it up).
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+  security-events: write # CodeQL uploads findings to the Security tab
+
+jobs:
+  # 1. Secret scanning — block leaked credentials.
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # gitleaks scans full history on push
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # 2. SAST — static code analysis via GitHub's native CodeQL.
+  sast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+      - uses: github/codeql-action/analyze@v3
+
+  # 3. SCA — flag vulnerable dependencies from the lockfile.
+  sca:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm audit --audit-level=high # high/critical block the merge
+
+  # 4. Unit tests.
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
