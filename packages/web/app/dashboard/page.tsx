@@ -1,15 +1,42 @@
-import { entitlementFor } from '@fanout/shared';
+import { entitlementFor, type PlanTier } from '@fanout/shared';
+import { getSessionUser } from '@/lib/session';
+import { prisma } from '@/lib/prisma';
 import { Card, CardTitle, CardDescription } from '@/components/ui/card';
+import { GoogleSignIn } from '@/components/auth/google-signin';
+import { SignOutButton } from '@/components/auth/sign-out-button';
 
-// Proves the @fanout/shared workspace import works end-to-end in the web app.
-// Real plan comes from the account/billing backend later (TICKET-040/042).
-const plan = entitlementFor('free');
+export const dynamic = 'force-dynamic'; // reads the session cookie
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const session = await getSessionUser();
+
+  if (!session) {
+    return (
+      <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-6 px-6 text-center">
+        <h1 className="text-2xl font-semibold">Sign in to Fanout</h1>
+        <p className="text-white/60">
+          Use the same Google account you send from. We only read your name and email — never your inbox.
+        </p>
+        <GoogleSignIn />
+      </main>
+    );
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { googleSub: session.sub },
+    include: { subscription: true },
+  });
+  const plan = entitlementFor((user?.subscription?.plan as PlanTier) ?? 'free');
+
   return (
     <main className="mx-auto max-w-4xl px-6 py-12">
-      <h1 className="text-2xl font-semibold">Your dashboard</h1>
-      <p className="mt-1 text-white/60">Plan, usage, and billing. (Shell — wired in TICKET-042.)</p>
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold">Your dashboard</h1>
+          <p className="mt-1 truncate text-white/60">{session.email}</p>
+        </div>
+        <SignOutButton />
+      </div>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
         <Card>

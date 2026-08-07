@@ -1,0 +1,98 @@
+// Fanout backend store (ARCHITECTURE §4.2). Identity, billing, and counts/metadata
+// ONLY — never a recipient address, name, subject, or body. If this DB leaked, no
+// recipient's information would be exposed.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Plan {
+  free
+  pro
+  team
+}
+
+enum SubStatus {
+  active
+  trialing
+  past_due
+  canceled
+}
+
+model User {
+  id            String         @id @default(uuid())
+  googleSub     String         @unique @map("google_sub")
+  email         String
+  name          String?
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  lastSeenAt    DateTime?      @map("last_seen_at")
+  subscription  Subscription?
+  campaignStats CampaignStat[]
+  errorEvents   ErrorEvent[]
+
+  @@map("users")
+}
+
+model Subscription {
+  id                     String    @id @default(uuid())
+  userId                 String    @unique @map("user_id")
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Merchant-of-Record provider (Lemon Squeezy); generalized so it isn't Stripe-bound.
+  provider               String    @default("lemonsqueezy")
+  providerCustomerId     String?   @map("provider_customer_id")
+  providerSubscriptionId String?   @map("provider_subscription_id")
+  plan                   Plan      @default(free)
+  status                 SubStatus @default(active)
+  currentPeriodEnd       DateTime? @map("current_period_end")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  @@map("subscriptions")
+}
+
+model CampaignStat {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaignRef String   @map("campaign_ref")
+  attempted   Int      @default(0)
+  sent        Int      @default(0)
+  failed      Int      @default(0)
+  capHits     Int      @default(0) @map("cap_hits")
+  startedAt   DateTime @map("started_at")
+  reportedAt  DateTime @updatedAt @map("reported_at")
+
+  @@unique([userId, campaignRef])
+  @@index([userId])
+  @@map("campaign_stats")
+}
+
+model ErrorEvent {
+  id         String   @id @default(uuid())
+  userId     String?  @map("user_id")
+  user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind       String
+  httpStatus Int?     @map("http_status")
+  message    String
+  extVersion String   @map("ext_version")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("error_events")
+}
+
+model WebhookEvent {
+  id          String   @id
+  type        String
+  processedAt DateTime @default(now()) @map("processed_at")
+
+  @@map("webhook_events")
+}
