@@ -23,11 +23,14 @@ export interface StoreVariant {
   productName: string;
 }
 
-let variantCache: StoreVariant[] | null = null;
+// Short TTL so a price/variant change in Lemon Squeezy propagates within minutes,
+// instead of being pinned for the life of a warm serverless instance.
+const CACHE_TTL_MS = 5 * 60 * 1000;
+let variantCache: { at: number; data: StoreVariant[] } | null = null;
 
 /** All published subscription variants in the store, joined to their product names. */
 async function listVariants(): Promise<StoreVariant[]> {
-  if (variantCache) return variantCache;
+  if (variantCache && Date.now() - variantCache.at < CACHE_TTL_MS) return variantCache.data;
   const res = await fetch(`${API}/variants?filter[store_id]=${STORE_ID}&include=product`, { headers: headers() });
   if (!res.ok) throw new Error(`LS variants ${res.status}`);
   const json = (await res.json()) as {
@@ -35,20 +38,26 @@ async function listVariants(): Promise<StoreVariant[]> {
     included?: { id: string; type: string; attributes: { name: string } }[];
   };
   const products = new Map((json.included ?? []).filter((i) => i.type === 'products').map((p) => [p.id, p.attributes.name]));
-  variantCache = json.data.map((v) => ({
+  const data = json.data.map((v) => ({
     variantId: v.id,
     productName: products.get(v.relationships.product.data.id) ?? '',
   }));
-  return variantCache;
+  variantCache = { at: Date.now(), data };
+  return data;
 }
 
-/** Pick the variant for a country: IN → "India" product, else the other. */
+/**
+ * Pick the variant for a country: IN → the "India" product, everyone else → the
+ * global product. Fails CLOSED for non-IN (returns null rather than falling back
+ * to the cheaper India variant) so a naming slip can never undercharge the world.
+ */
 export async function variantForCountry(country: string | null): Promise<string | null> {
   const variants = await listVariants();
   if (variants.length === 0) return null;
   const india = variants.find((v) => /india/i.test(v.productName));
-  const global = variants.find((v) => !/india/i.test(v.productName)) ?? variants[0];
-  return (country === 'IN' ? india : global)?.variantId ?? global?.variantId ?? null;
+  const global = variants.find((v) => !/india/i.test(v.productName));
+  if (country === 'IN') return (india ?? global)?.variantId ?? null;
+  return global?.variantId ?? null;
 }
 
 /** Create a hosted checkout; returns its URL. `userSub` rides along in custom

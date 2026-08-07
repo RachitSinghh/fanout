@@ -4,27 +4,36 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 
 /** Kicks off a Pro checkout (TICKET-041): POST /api/billing/checkout → redirect
- *  to the Lemon Squeezy hosted checkout. */
+ *  to the Lemon Squeezy hosted checkout. Surfaces failures to the user. */
 export function UpgradeButton() {
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   return (
-    <Button
-      size="sm"
-      className="mt-3"
-      disabled={busy}
-      onClick={async () => {
-        setBusy(true);
-        try {
-          const res = await fetch('/api/billing/checkout', { method: 'POST' });
-          const { url } = (await res.json()) as { url?: string };
-          if (url) window.location.href = url;
-          else setBusy(false);
-        } catch {
+    <div className="mt-3">
+      <Button
+        size="sm"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          setError(null);
+          try {
+            const res = await fetch('/api/billing/checkout', { method: 'POST' });
+            const data = (await res.json().catch(() => ({}))) as { url?: string };
+            if (res.ok && data.url) {
+              window.location.href = data.url;
+              return; // navigating away; keep the button busy
+            }
+            setError('Could not start checkout. Please try again.');
+          } catch {
+            setError('Network error. Please try again.');
+          }
           setBusy(false);
-        }
-      }}
-    >
-      {busy ? 'Redirecting…' : 'Upgrade to Pro'}
-    </Button>
+        }}
+      >
+        {busy ? 'Redirecting…' : 'Upgrade to Pro'}
+      </Button>
+      {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
+    </div>
   );
 }
