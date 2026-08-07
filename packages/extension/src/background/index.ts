@@ -5,6 +5,7 @@ import { sendRawEmail } from './gmailClient';
 import { buildRawMessage } from '../services/mimeBuilder';
 import * as data from '../db/campaigns';
 import * as templates from '../db/templates';
+import { getEntitlement } from '../services/entitlementService';
 // Static import: the send engine registers a top-level chrome.alarms listener as
 // a side effect, which MV3 requires to run synchronously on worker load (an async
 // import()s listener can miss the very alarm that woke the worker). It also keeps
@@ -92,6 +93,8 @@ async function handle(req: Request): Promise<unknown> {
     case 'DATA_TEMPLATE_DELETE':
       await templates.deleteTemplate(req.id);
       return { ok: true };
+    case 'DATA_GET_ENTITLEMENT':
+      return getEntitlement();
     default: {
       const _exhaustive: never = req;
       throw new Error(`Unknown request: ${JSON.stringify(_exhaustive)}`);

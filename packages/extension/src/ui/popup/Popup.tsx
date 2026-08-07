@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { LogIn, ShieldCheck, Send, Inbox, Download, ChevronLeft } from 'lucide-react';
 import type { Campaign } from '@fanout/shared';
 import { useAuthStore } from '../../store/authStore';
+import { useEntitlementStore } from '../../store/entitlementStore';
 import { sendToWorker } from '../../messaging/channel';
 import { dbClient } from '../../services/dbClient';
 import { downloadResultsCsv } from '../../services/csvExport';
@@ -9,10 +10,12 @@ import { Button, Card, Callout, Badge, Wordmark } from '../components/primitives
 
 export function Popup() {
   const { status, identity, error, hydrate, connect, disconnect } = useAuthStore();
+  const loadEntitlement = useEntitlementStore((s) => s.load);
 
   useEffect(() => {
     void hydrate();
-  }, [hydrate]);
+    void loadEntitlement();
+  }, [hydrate, loadEntitlement]);
 
   return (
     <div className="flex min-h-[480px] max-h-[600px] w-[400px] flex-col overflow-y-auto bg-[var(--surface)] p-4">
@@ -89,6 +92,7 @@ function ConnectedView({
               Sending as
             </p>
             <p className="font-mono text-mono-sm text-[var(--text-primary)]">{email}</p>
+            <PlanLabel />
           </div>
           <Button variant="ghost" size="sm" onClick={onDisconnect}>
             Disconnect
@@ -102,6 +106,12 @@ function ConnectedView({
       <TestSend />
     </div>
   );
+}
+
+function PlanLabel() {
+  const tier = useEntitlementStore((s) => s.entitlement?.tier);
+  if (!tier) return null;
+  return <p className="mt-0.5 text-caption capitalize text-brand-400">{tier} plan</p>;
 }
 
 function StartCampaignCard() {

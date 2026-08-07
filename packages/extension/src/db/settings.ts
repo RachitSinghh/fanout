@@ -16,4 +16,8 @@ export const SETTING_KEYS = {
   lastColumnMappings: 'lastColumnMappings',
   cachedIdentity: 'cachedIdentity',
   cachedLicense: 'cachedLicense',
+  /** Opt-out toggle for aggregate diagnostics (TICKET-034); default on. */
+  shareDiagnostics: 'shareDiagnostics',
+  /** Dev-only override to force a plan tier for the entitlement stub (TICKET-035). */
+  planOverride: 'planOverride',
 } as const;

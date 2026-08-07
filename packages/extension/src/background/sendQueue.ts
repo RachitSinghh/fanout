@@ -17,6 +17,7 @@ import {
 import { broadcast, type Request, type ProgressSnapshot } from '../messaging/channel';
 import { logger } from '../lib/logger';
 import { partitionDue } from './schedule';
+import { emitCampaignTelemetry } from './telemetry';
 
 /**
  * Alarms-driven, resumable send engine (ARCHITECTURE §7.1). Each tick reads the
@@ -347,6 +348,9 @@ async function complete(campaign: Campaign): Promise<void> {
   await recomputeCounts(campaign.id);
   await broadcastProgress(campaign.id);
   await promoteDueScheduled(); // pick up any campaign queued to start next
+  // Fire-and-forget aggregate telemetry (TICKET-034); no-ops without a backend,
+  // never blocks or breaks the run. Re-read for fresh denormalized counts.
+  void db.campaigns.get(campaign.id).then((fresh) => fresh && emitCampaignTelemetry(fresh));
   logger.info('campaign complete', { campaignId: campaign.id });
 }
 

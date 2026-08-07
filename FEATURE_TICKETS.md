@@ -14,15 +14,7 @@ Derived from PRD v2.0 (Aug 6, 2026). Tickets are sequenced in recommended build 
 
 Goal: extension live in the Chrome Web Store, onboarding the first 100 test users, with the phone-home hooks built (but harmless) so Phase 2 is not a re-release.
 
-### TICKET-034 — Telemetry Emitter (extension)
-**Priority:** MUST (for platform) · **Depends on:** TICKET-013 · **New**
-**Build:** After each campaign completes, POST **aggregate counts** (`attempted`, `sent`, `failed`, `cap_hits`, an opaque `campaign_ref`) and any **scrubbed error events** to `${VITE_BACKEND_URL}/api/telemetry`. Reuse `lib/logger.ts` to scrub **before** building the payload. In Phase 1 the endpoint does not exist yet — if `VITE_BACKEND_URL` is unset the emitter **no-ops (or queues locally)** so it ships harmlessly and activates in Phase 2. Honor a "share diagnostics" toggle (default on, user can disable).
-**AC:** emits counts + scrubbed errors; payload **never** contains a recipient address/name, subject, body, or CSV value — enforced by a unit test that fails on any `@`-shaped string beyond the user's own email; `campaign_ref` is opaque (not reversible to recipients); no-ops cleanly when no backend is configured; respects the diagnostics toggle.
-
-### TICKET-035 — Entitlement Check + Tier Gating (extension)
-**Priority:** MUST (for platform) · **Depends on:** TICKET-013 · **New**
-**Build:** An entitlement service returning the current tier (`free` / `pro` / `team`) and derived limits (daily cap, feature flags). Phase 1: a **stub** that always returns `free` (with a dev override). Gate scheduling (016), attachments (018), and the daily cap on tier. Limits live once in `@fanout/shared/constants`. UI shows locked features with an upgrade affordance.
-**AC:** features gate on tier from a single source of truth; stub returns `free`; UI reflects locked state; swapping the stub for the real API (TICKET-040) needs **no UI change**.
+> **Extension code for Phase 1 is complete** (016, 018, 034, 035 — all in the Done section). What remains for Phase 1 is **non-code**: Epic F below (legal + OAuth verification + Web Store).
 
 ### Epic F (Phase 1 launch prerequisites)
 Legal + verification gate public launch (below). **TICKET-028/029 (Privacy Policy + ToS) are satisfied by TICKET-037** once the Next.js marketing site is up — but they can also be shipped as static pages first if Phase 2 lags, since OAuth verification needs them live. See the **Epic F** table below.
@@ -322,3 +314,15 @@ The v1.0 MVP and the templates feature. Full original ticket text preserved belo
 ### TICKET-017 — Templates Library
 **Priority:** SHOULD · **Depends on:** TICKET-006
 **Build:** Save/reuse subject+body templates with tokens. **AC:** save, name, load, edit, delete templates; templates persist locally.
+
+## Phase-1 platform hooks (done — activate in Phase 2)
+
+### TICKET-034 — Telemetry Emitter (extension)
+**Priority:** MUST (for platform) · **Depends on:** TICKET-013
+**Build:** On campaign complete, `emitCampaignTelemetry` (`background/telemetry.ts`) POSTs **counts only** (`attempted`/`sent`/`failed`/`skipped`, distinct error **codes**, opaque `campaignRef` = campaign UUID, ext version) to `${VITE_BACKEND_URL}/api/telemetry`. **No-ops when `VITE_BACKEND_URL` is unset** (Phase 1), honors a `shareDiagnostics` toggle, and never lets a failure disrupt sending.
+**AC:** ✅ counts + scrubbed error codes; ✅ **no PII** — pure `buildTelemetry` unit-tested to carry no `@`/subject/body; ✅ no-ops without a backend; ✅ opaque ref. Lights up in Phase 2 (TICKET-039) with no re-release.
+
+### TICKET-035 — Entitlement Check + Tier Gating (extension)
+**Priority:** MUST (for platform) · **Depends on:** TICKET-013
+**Build:** Single source of truth in `@fanout/shared` (`PlanTier`, `ENTITLEMENTS`, `entitlementFor`). `entitlementService.getEntitlement()` is the **stub** (returns `free`, dev override via `planOverride` setting); worker exposes it over `DATA_GET_ENTITLEMENT`; `entitlementStore` caches it UI-side. Scheduling + attachments gate on it; popup shows the plan. **`free` unlocks everything at launch**, so nothing is locked yet.
+**AC:** ✅ gates read one source; ✅ stub returns `free`; ✅ swapping the stub for `/api/entitlement` (TICKET-040) needs no UI change; `entitlementFor` unit-tested.

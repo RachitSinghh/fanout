@@ -7,6 +7,7 @@ import type { Recipient, RecipientStatus } from '@fanout/shared';
 import { extensionContextAlive } from '../../../messaging/channel';
 import { useCampaignStore } from '../../../store/campaignStore';
 import { useSendStatusStore } from '../../../store/sendStatusStore';
+import { useEntitlementStore } from '../../../store/entitlementStore';
 import { useAuthStore } from '../../../store/authStore';
 import { StepLayout } from '../StepLayout';
 import { Button, Card, Callout } from '../../components/primitives';
@@ -139,6 +140,8 @@ function PreSend({
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduledAt, setScheduledAt] = useState<number | null>(null);
   const validAt = scheduledAt != null && scheduledAt - Date.now() >= 60_000;
+  // Feature gate (TICKET-035); `free` unlocks it at launch so this is true today.
+  const canSchedule = useEntitlementStore((s) => s.entitlement?.scheduling ?? true);
 
   return (
     <StepLayout
@@ -151,9 +154,9 @@ function PreSend({
             <Button
               variant="secondary"
               size="lg"
-              aria-label="Schedule for later"
-              title="Schedule for later"
-              disabled={count === 0}
+              aria-label={canSchedule ? 'Schedule for later' : 'Scheduling is a Pro feature'}
+              title={canSchedule ? 'Schedule for later' : 'Scheduling is a Pro feature'}
+              disabled={count === 0 || !canSchedule}
               onClick={() => setScheduleOpen(true)}
               className="w-11 !px-0"
               leadingIcon={<CalendarClock size={18} />}
