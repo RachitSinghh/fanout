@@ -12,7 +12,12 @@ export async function POST(req: Request) {
   if (!session) return NextResponse.json({ error: 'not signed in' }, { status: 401 });
 
   const url = new URL(req.url);
-  const country = req.headers.get('x-vercel-ip-country') ?? url.searchParams.get('country');
+  // Production trusts ONLY the Vercel geo header; `?country=` is a dev/test override
+  // (else any user could pick the cheaper India price).
+  const devOverride = process.env.NODE_ENV === 'production' ? null : url.searchParams.get('country');
+  const country = req.headers.get('x-vercel-ip-country') ?? devOverride;
+  // Post-payment redirect must be a configured origin, not the (spoofable) request Host.
+  const appOrigin = process.env.NEXT_PUBLIC_APP_URL || url.origin;
 
   try {
     const variantId = await variantForCountry(country);
@@ -22,7 +27,7 @@ export async function POST(req: Request) {
       variantId,
       email: session.email,
       userSub: session.sub,
-      redirectUrl: `${url.origin}/dashboard`,
+      redirectUrl: `${appOrigin}/dashboard`,
     });
     return NextResponse.json({ url: checkoutUrl });
   } catch (e) {

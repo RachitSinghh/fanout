@@ -16,11 +16,14 @@ export async function POST(req: Request) {
 
   const payload = JSON.parse(raw) as {
     meta: { event_name: string; custom_data?: { user_sub?: string } };
-    data: { id: string; attributes: Record<string, unknown> };
+    data: { id: string; type: string; attributes: Record<string, unknown> };
   };
 
-  if (!payload.meta.event_name?.startsWith('subscription_')) {
-    return NextResponse.json({ ok: true }); // ignore non-subscription events
+  // Only act on Subscription resources. `subscription_payment_*` events carry
+  // INVOICE data (type 'subscription-invoices') with no subscription status —
+  // processing them would map to 'canceled' and wrongly downgrade a paying user.
+  if (payload.data.type !== 'subscriptions') {
+    return NextResponse.json({ ok: true });
   }
 
   const attrs = payload.data.attributes;
