@@ -32,3 +32,66 @@ body {
   background: var(--color-accent);
   color: var(--color-warm);
 }
+
+/* Ported landing helpers (FRONTEND_SPEC §3). */
+.heading-grad {
+  background: linear-gradient(90deg, #ffffff 0%, #9b9b9b 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.ease-fluid {
+  transition-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+}
+.focus-ring:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+@keyframes fanout-fill {
+  from {
+    width: 0;
+  }
+  to {
+    width: 62%;
+  }
+}
+.bar-fill {
+  animation: fanout-fill 2.6s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+@keyframes fanout-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+.fx-float {
+  animation: fanout-float 3s ease-in-out infinite;
+}
+
+/* Custom arrow cursor (desktop only). */
+.fanout-cursor {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0;
+  transform-origin: 3px 2px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
+}
+@media (pointer: fine) {
+  html.cursor-on,
+  html.cursor-on * {
+    cursor: none !important;
+  }
+}
+@media (pointer: coarse) {
+  .fanout-cursor {
+    display: none;
+  }
+}
