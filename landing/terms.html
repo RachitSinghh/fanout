@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en" class="dark scroll-smooth">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Terms of Service — Fanout</title>
+  <meta name="description" content="Terms for using Fanout — a personalization tool for individual 1:1 outreach from your own Gmail, not a bulk spam sender." />
+  <meta name="robots" content="index,follow" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%23E8B04B'/><path d='M28 34h44M28 50h30M28 66h18' stroke='%23131209' stroke-width='8' stroke-linecap='round'/></svg>" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Geist', 'system-ui', 'sans-serif'],
+            mono: ['"Geist Mono"', 'ui-monospace', 'monospace'],
+          },
+          colors: {
+            ink: '#000000', surface: '#181818', raised: '#1F1F1F',
+            line: '#272727', hi: '#313131', warm: '#131209', accent: '#E8B04B',
+          },
+        },
+      },
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    html, body { background: #000; }
+    ::selection { background: #E8B04B; color: #131209; }
+    .prose h2 { color:#fff; font-weight:600; font-size:1.25rem; margin-top:2.25rem; margin-bottom:.6rem; }
+    .prose p, .prose li { color:rgba(255,255,255,0.72); line-height:1.7; }
+    .prose ul { list-style:disc; padding-left:1.25rem; margin:.5rem 0; display:flex; flex-direction:column; gap:.35rem; }
+    .prose strong { color:#fff; font-weight:600; }
+    .prose a { color:#E8B04B; text-decoration:underline; text-underline-offset:2px; }
+    .focus-ring:focus-visible { outline:2px solid #E8B04B; outline-offset:2px; border-radius:8px; }
+  </style>
+</head>
+<body class="bg-ink text-white font-sans antialiased" style="text-wrap: pretty;">
+  <!-- NAV -->
+  <header class="border-b border-line">
+    <div class="mx-auto max-w-3xl flex items-center justify-between px-4 py-5">
+      <a href="index.html" class="flex items-center gap-2 focus-ring">
+        <span class="grid h-7 w-7 place-items-center rounded-lg bg-accent text-warm">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none"><path d="M22 2 15 22 11 13 2 9 22 2Z" fill="#131209"/></svg>
+        </span>
+        <span class="font-semibold tracking-tight">Fanout</span>
+      </a>
+      <a href="index.html" class="text-sm text-white/60 hover:text-white focus-ring">← Back to site</a>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-3xl px-4 py-12 prose">
+    <p class="text-sm text-white/40">Effective date: <strong class="text-white/70">August 7, 2026</strong></p>
+    <h1 class="mt-2 text-3xl font-bold text-white">Terms of Service</h1>
+
+    <!-- PUBLISHER TODO: replace bracketed placeholders (entity, email, governing law) before going live. -->
+    <div class="mt-4 rounded-lg border border-line bg-surface p-4 text-sm text-white/55">
+      By installing or using <strong>Fanout</strong>, you agree to these terms. Fanout is operated by
+      <strong>[Legal entity / your name]</strong>. Contact:
+      <a href="mailto:[support@your-domain]">[support@your-domain]</a>.
+    </div>
+
+    <h2>1. What Fanout is</h2>
+    <p>
+      Fanout is a <strong>personalization tool</strong> for sending individual, 1:1 emails from your
+      own Gmail account — each recipient gets their own message, never a shared To/CC/BCC. It is
+      <strong>not</strong> a mass-marketing or spam tool, and must not be used as one.
+    </p>
+
+    <h2>2. Acceptable use</h2>
+    <p>You agree to use Fanout only for lawful, consent-based outreach. You must <strong>not</strong>:</p>
+    <ul>
+      <li>Send unsolicited bulk mail (spam), or email people who have not agreed to hear from you or with whom you have no legitimate relationship.</li>
+      <li>Send deceptive, fraudulent, harassing, hateful, or unlawful content.</li>
+      <li>Attempt to evade Gmail’s sending limits, spam filters, or these terms.</li>
+    </ul>
+    <p>
+      <strong>You are solely responsible for the content you send and for complying with all
+      applicable laws</strong> — including anti-spam and privacy laws such as CAN-SPAM, CASL, and
+      GDPR, and for honoring opt-out/unsubscribe requests. Fanout is a tool; how you use it is your
+      responsibility.
+    </p>
+
+    <h2>3. Your Google account &amp; sending</h2>
+    <p>
+      You authorize Fanout to send email on your behalf via Gmail using the <code>gmail.send</code>
+      permission. All email is sent <strong>from your own account, by you</strong> — Fanout is not an
+      independent sender and is never in the mail path. You can revoke access at any time from your
+      Google Account settings.
+    </p>
+    <p>
+      Fanout applies conservative throttling and daily caps to help protect your account, but sending
+      is ultimately governed by Google. <strong>We do not control and are not responsible for Google’s
+      decisions</strong>, including rate limiting, filtering, or suspension of your account. Send
+      responsibly, especially from new accounts.
+    </p>
+
+    <h2>4. Plans &amp; billing</h2>
+    <p>
+      Fanout may offer free and paid subscription tiers. Paid plans are billed through our payment
+      processor (Stripe); by subscribing you authorize the applicable recurring charges. You can
+      manage or cancel your subscription at any time; access continues until the end of the paid
+      period. Prices and features may change with notice.
+    </p>
+
+    <h2>5. No warranty</h2>
+    <p>
+      Fanout is provided <strong>“as is”</strong>, without warranties of any kind. We do not guarantee
+      deliverability, uptime, or that sending will be uninterrupted or error-free.
+    </p>
+
+    <h2>6. Limitation of liability</h2>
+    <p>
+      To the maximum extent permitted by law, Fanout and its operator are not liable for any indirect,
+      incidental, or consequential damages, or for any loss arising from your use of the tool —
+      including account suspension, deliverability issues, or data loss. Our total liability is limited
+      to the amount you paid us in the 12 months prior to the claim.
+    </p>
+
+    <h2>7. Termination</h2>
+    <p>We may suspend or terminate access for violation of these terms, particularly abuse or spam. You may stop using Fanout at any time by uninstalling it.</p>
+
+    <h2>8. Changes</h2>
+    <p>We may update these terms; continued use after an update means you accept the revised terms.</p>
+
+    <h2>9. General</h2>
+    <p>
+      Fanout is not affiliated with, endorsed by, or sponsored by Google. Gmail is a trademark of
+      Google LLC. These terms are governed by the laws of <strong>[your jurisdiction]</strong>.
+    </p>
+
+    <h2>10. Contact</h2>
+    <p><a href="mailto:[support@your-domain]">[support@your-domain]</a></p>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-line px-4 py-12">
+    <div class="mx-auto max-w-3xl flex flex-col md:flex-row items-center justify-between gap-6">
+      <div class="flex items-center gap-2">
+        <span class="grid h-7 w-7 place-items-center rounded-lg bg-accent text-warm">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none"><path d="M22 2 15 22 11 13 2 9 22 2Z" fill="#131209"/></svg>
+        </span>
+        <span class="font-semibold">Fanout</span>
+      </div>
+      <nav class="flex items-center gap-6 text-sm text-white/60">
+        <a href="index.html" class="hover:text-white focus-ring">Home</a>
+        <a href="privacy.html" class="hover:text-white focus-ring">Privacy</a>
+        <a href="terms.html" class="text-white focus-ring">Terms</a>
+      </nav>
+    </div>
+    <p class="mx-auto max-w-3xl mt-8 text-sm text-white/30">© 2026 Fanout. Runs entirely in your browser. Fanout is not affiliated with Google. Gmail is a trademark of Google LLC.</p>
+  </footer>
+</body>
+</html>
