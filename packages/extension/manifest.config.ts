@@ -49,6 +49,9 @@ export default defineManifest({
     'https://gmail.googleapis.com/*',
     'https://www.googleapis.com/*',
     'https://people.googleapis.com/*',
+    // Fanout backend for telemetry/entitlement (TICKET-039/040). Dev = localhost;
+    // add the production API host here at deploy time.
+    'http://localhost:3000/*',
   ],
   oauth2: {
     client_id: CLIENT_ID,
