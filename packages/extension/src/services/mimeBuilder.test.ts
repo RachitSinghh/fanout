@@ -68,4 +68,52 @@ describe('buildRawMessage', () => {
     expect(decodeBodyPart(raw, 'text/plain')).toBe('Hola José');
     expect(decodeBodyPart(raw, 'text/html')).toBe('<p>田中さん</p>');
   });
+
+  it('wraps the body + attachment in multipart/mixed and preserves attachment bytes', () => {
+    const content = 'PDF-ish attachment payload — with UTF-8: café ☕';
+    const attB64In = Buffer.from(content, 'utf-8').toString('base64');
+    const raw = buildRawMessage({
+      fromName: 'Sam',
+      fromEmail: 'sam@co.com',
+      toEmail: 'j@a.com',
+      subject: 's',
+      bodyText: 'body',
+      bodyHtml: '<p>body</p>',
+      attachments: [
+        { name: 'deck.pdf', mimeType: 'application/pdf', size: content.length, data: attB64In },
+      ],
+    });
+    const msg = decodeBase64Url(raw);
+
+    // Envelope is multipart/mixed with the alternative body nested inside it.
+    expect(msg).toContain('multipart/mixed');
+    expect(msg).toContain('multipart/alternative');
+    expect(msg).toContain('Content-Disposition: attachment; filename="deck.pdf"');
+    expect(msg).toContain('Content-Type: application/pdf; name="deck.pdf"');
+
+    // Body parts survive.
+    expect(decodeBodyPart(raw, 'text/plain')).toBe('body');
+
+    // The attachment's base64 round-trips back to the original bytes.
+    const disp = msg.indexOf('Content-Disposition: attachment');
+    const start = msg.indexOf('\r\n\r\n', disp) + 4;
+    const end = msg.indexOf('\r\n--fanout-mixed', start);
+    const attB64Out = msg.slice(start, end).replace(/\r\n/g, '');
+    expect(Buffer.from(attB64Out, 'base64').toString('utf-8')).toBe(content);
+  });
+
+  it('omits the mixed envelope when there are no attachments', () => {
+    const raw = buildRawMessage({
+      fromName: 'Sam',
+      fromEmail: 'sam@co.com',
+      toEmail: 'j@a.com',
+      subject: 's',
+      bodyText: 'x',
+      bodyHtml: '<p>x</p>',
+      attachments: [],
+    });
+    const msg = decodeBase64Url(raw);
+    expect(msg).toContain('multipart/alternative');
+    expect(msg).not.toContain('multipart/mixed');
+  });
 });

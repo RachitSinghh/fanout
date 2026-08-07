@@ -6,6 +6,7 @@ import type {
   ThrottleConfig,
   UserIdentity,
   Template,
+  Attachment,
 } from '@fanout/shared';
 import { tokenSchema, templateApplyPatch } from '@fanout/shared';
 import { dbClient } from '../services/dbClient';
@@ -42,6 +43,7 @@ interface CampaignStore {
   setMappings: (mappings: TokenMapping[], headers: string[]) => Promise<void>;
   setThrottle: (throttle: ThrottleConfig) => Promise<void>;
   setDailyCap: (dailyCap: number | null) => Promise<void>;
+  setAttachments: (attachments: Attachment[]) => Promise<void>;
   setTokenFallback: (token: string, fallback: string) => Promise<void>;
   applyTemplate: (template: Template) => Promise<void>;
   refresh: () => Promise<void>;
@@ -152,6 +154,13 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
     if (!campaign) return;
     await dbClient.updateCampaign(campaign.id, { dailyCap });
     set({ campaign: { ...campaign, dailyCap } });
+  },
+
+  setAttachments: async (attachments) => {
+    const { campaign } = get();
+    if (!campaign) return;
+    await dbClient.updateCampaign(campaign.id, { attachments });
+    set({ campaign: { ...campaign, attachments } });
   },
 
   setTokenFallback: async (token, fallback) => {

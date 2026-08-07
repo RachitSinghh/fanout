@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react';
-import { AlertTriangle, Timer, Gauge, ShieldCheck, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
-import { MIN_SEND_DELAY_MS } from '@fanout/shared';
+import {
+  AlertTriangle, Timer, Gauge, ShieldCheck, CheckCircle2, ChevronLeft, ChevronRight,
+  Paperclip, FileText, X,
+} from 'lucide-react';
+import { MIN_SEND_DELAY_MS, MAX_ATTACHMENT_BYTES, type Attachment } from '@fanout/shared';
 import { useCampaignStore } from '../../../store/campaignStore';
 import { StepLayout } from '../StepLayout';
 import { Button, Card, Callout } from '../../components/primitives';
@@ -18,7 +21,9 @@ export function ReviewStep() {
   );
 
   if (!campaign) return null;
-  const canSend = sendable.length > 0 && blocking.length === 0;
+  const attachmentsBytes = (campaign.attachments ?? []).reduce((n, a) => n + a.size, 0);
+  const attachmentsOver = attachmentsBytes > MAX_ATTACHMENT_BYTES;
+  const canSend = sendable.length > 0 && blocking.length === 0 && !attachmentsOver;
 
   return (
     <StepLayout
@@ -41,6 +46,10 @@ export function ReviewStep() {
       {blocking.length > 0 && <MissingTokenBlock tokens={blocking} />}
 
       <PreviewPane noMissing={blocking.length === 0} />
+
+      <div className="mt-6">
+        <Attachments />
+      </div>
 
       <div className="mt-6">
         <SendOptions />
@@ -274,5 +283,114 @@ function ModeBtn({
     >
       {children}
     </button>
+  );
+}
+
+/** Read a picked File into a base64 Attachment (stored on the campaign). */
+async function fileToAttachment(file: File): Promise<Attachment> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return {
+    name: file.name,
+    mimeType: file.type || 'application/octet-stream',
+    size: file.size,
+    data: btoa(binary),
+  };
+}
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Files attached to every send in the campaign (TICKET-018). */
+function Attachments() {
+  const campaign = useCampaignStore((s) => s.campaign)!;
+  const setAttachments = useCampaignStore((s) => s.setAttachments);
+  const files = campaign.attachments ?? [];
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const totalBytes = files.reduce((n, a) => n + a.size, 0);
+  const over = totalBytes > MAX_ATTACHMENT_BYTES;
+
+  async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const picked = Array.from(e.target.files ?? []);
+    e.target.value = ''; // let the same file be re-picked after removal
+    if (picked.length === 0) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const added = await Promise.all(picked.map(fileToAttachment));
+      // Re-adding a file with the same name replaces it (no silent duplicates).
+      const byName = new Map(files.map((a) => [a.name, a] as const));
+      for (const a of added) byName.set(a.name, a);
+      await setAttachments([...byName.values()]);
+    } catch {
+      setError('Could not read one of those files. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card>
+      <div className="flex items-center gap-2">
+        <Paperclip size={18} className="text-brand-400" />
+        <h3 className="text-h3">Attachments</h3>
+      </div>
+      <p className="mt-1 text-body text-[var(--text-secondary)]">
+        Optional. Files added here go out with <em>every</em> recipient's individual email.
+      </p>
+
+      {files.length > 0 && (
+        <ul className="mt-3 flex flex-col gap-2">
+          {files.map((a) => (
+            <li
+              key={a.name}
+              className="flex items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface-sunken)] px-3 py-2"
+            >
+              <FileText size={16} className="shrink-0 text-[var(--text-muted)]" />
+              <span className="min-w-0 flex-1 truncate text-body">{a.name}</span>
+              <span className="shrink-0 font-tnum text-caption text-[var(--text-muted)]">
+                {formatBytes(a.size)}
+              </span>
+              <button
+                aria-label={`Remove ${a.name}`}
+                onClick={() => void setAttachments(files.filter((f) => f.name !== a.name))}
+                className="shrink-0 text-[var(--text-muted)] transition-colors hover:text-danger-fg"
+              >
+                <X size={15} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="mt-3 flex items-center gap-3">
+        <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-1.5 text-label text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-sunken)]">
+          <Paperclip size={14} /> {busy ? 'Reading…' : 'Add files'}
+          <input type="file" multiple className="hidden" onChange={onPick} disabled={busy} />
+        </label>
+        {files.length > 0 && (
+          <span className={`font-tnum text-caption ${over ? 'text-danger-fg' : 'text-[var(--text-muted)]'}`}>
+            {formatBytes(totalBytes)} / {formatBytes(MAX_ATTACHMENT_BYTES)}
+          </span>
+        )}
+      </div>
+
+      {error && <p className="mt-2 text-caption text-danger-fg">{error}</p>}
+      {over && (
+        <Callout tone="danger" icon={<AlertTriangle size={16} />} className="mt-3">
+          Attachments total {formatBytes(totalBytes)} — over Gmail's ~25&nbsp;MB message
+          limit. Remove some before sending.
+        </Callout>
+      )}
+    </Card>
   );
 }

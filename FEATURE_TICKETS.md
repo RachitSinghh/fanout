@@ -14,11 +14,6 @@ Derived from PRD v2.0 (Aug 6, 2026). Tickets are sequenced in recommended build 
 
 Goal: extension live in the Chrome Web Store, onboarding the first 100 test users, with the phone-home hooks built (but harmless) so Phase 2 is not a re-release.
 
-### TICKET-018 — Attachments
-**Priority:** SHOULD · **Depends on:** TICKET-009 · **Gated:** Pro
-**Build:** Attach one or more files to all sends; extend the MIME builder for multipart with attachments. Gate behind Pro (TICKET-035).
-**AC:** attachments included in every individual send; total size validated against Gmail limits; encoding correct (base64, filename, content-type); blocked for Free with upgrade prompt.
-
 ### TICKET-034 — Telemetry Emitter (extension)
 **Priority:** MUST (for platform) · **Depends on:** TICKET-013 · **New**
 **Build:** After each campaign completes, POST **aggregate counts** (`attempted`, `sent`, `failed`, `cap_hits`, an opaque `campaign_ref`) and any **scrubbed error events** to `${VITE_BACKEND_URL}/api/telemetry`. Reuse `lib/logger.ts` to scrub **before** building the payload. In Phase 1 the endpoint does not exist yet — if `VITE_BACKEND_URL` is unset the emitter **no-ops (or queues locally)** so it ships harmlessly and activates in Phase 2. Honor a "share diagnostics" toggle (default on, user can disable).
@@ -318,6 +313,11 @@ The v1.0 MVP and the templates feature. Full original ticket text preserved belo
 **Priority:** SHOULD · **Depends on:** TICKET-009 · **Ungated for now** (launch-free; Pro-gate later via TICKET-035)
 **Build:** Queue a campaign to start at a future date/time via `chrome.alarms`, on the existing alarm-driven resumable engine (`sendQueue.ts` `schedule`/`unschedule`/`promoteDueScheduled`, pure `partitionDue` + test). Custom gold-themed date+time picker in the Shadow-DOM overlay (no shadcn dep). UX: confirm-gated "Send now instead" (no accidental early send), overlay auto-closes after a "✓ Scheduled" beat, popup live-monitors campaigns and opens a per-campaign report with a live countdown to the scheduled start.
 **AC:** ✅ starts at the scheduled time; resumes if the worker slept / browser was closed; cancelable before start; monitorable + reportable from the popup. *Manual Chrome pass done by the user.*
+
+### TICKET-018 — Attachments
+**Priority:** SHOULD · **Depends on:** TICKET-009 · **Ungated for now** (launch-free; Pro-gate later via TICKET-035)
+**Build:** Attach one or more files to every individual send. Files stored on the campaign as base64 (`Attachment[]`); the MIME builder wraps the text/html alternative in `multipart/mixed` with an attachment part per file (RFC 2231 filenames, base64 transfer-encoding). Attachments UI added to the Review step: add/remove files, per-file + total size, with a hard block when the total exceeds the Gmail-safe ceiling (`MAX_ATTACHMENT_BYTES`, 20 MB raw).
+**AC:** ✅ included in every send (same for all recipients); ✅ total size validated against Gmail's ~25 MB limit (send blocked when over); ✅ correct encoding (base64 + filename + content-type), covered by `mimeBuilder.test.ts`. *Needs a manual Chrome pass to confirm a real file arrives.*
 
 ### TICKET-017 — Templates Library
 **Priority:** SHOULD · **Depends on:** TICKET-006
