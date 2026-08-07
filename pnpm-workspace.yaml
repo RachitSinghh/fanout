@@ -2,5 +2,11 @@ packages:
   - 'packages/*'
 allowBuilds:
   esbuild: true
+  prisma: true
+  '@prisma/engines': true
+  '@prisma/client': true
 onlyBuiltDependencies:
   - esbuild
+  - prisma
+  - '@prisma/engines'
+  - '@prisma/client'
