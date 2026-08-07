@@ -1,0 +1,35 @@
+name: CI
+
+# Runs on every push and PR. Branch protection on `main` requires both jobs
+# below to pass before a merge is allowed.
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  # 1. Security scan — block leaked credentials / secrets committed to the repo.
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # gitleaks scans full history on push
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # 2. Build must succeed.
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22 # pnpm 11 (packageManager) needs Node >=22.13
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
