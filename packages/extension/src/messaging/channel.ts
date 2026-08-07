@@ -45,6 +45,8 @@ export type Request =
   | { type: 'SEND_CANCEL'; campaignId: string }
   | { type: 'SEND_RETRY_FAILED'; campaignId: string }
   | { type: 'SEND_GET_PROGRESS'; campaignId: string }
+  | { type: 'SEND_SCHEDULE'; campaignId: string; scheduledAt: number }
+  | { type: 'SEND_UNSCHEDULE'; campaignId: string }
   // Data-access layer: the worker owns the extension-origin IndexedDB. The
   // content-script overlay (mail.google.com origin) must route through here.
   | { type: 'DATA_CAMPAIGN_CREATE'; compose: ComposeInput }
@@ -94,6 +96,8 @@ export interface ResponseMap {
   SEND_CANCEL: { ok: true };
   SEND_RETRY_FAILED: { requeued: number };
   SEND_GET_PROGRESS: ProgressSnapshot | null;
+  SEND_SCHEDULE: { ok: true };
+  SEND_UNSCHEDULE: { ok: true };
   DATA_CAMPAIGN_CREATE: Campaign;
   DATA_CAMPAIGN_GET: Campaign | null;
   DATA_CAMPAIGN_UPDATE: { ok: true };
@@ -115,10 +119,21 @@ export type BroadcastEvent =
   | { type: 'PROGRESS'; snapshot: ProgressSnapshot }
   | { type: 'AUTH_CHANGED'; state: AuthState };
 
+/**
+ * True while this page still belongs to a live extension. After an extension
+ * reload/update, content scripts already injected in open Gmail tabs are
+ * orphaned — `chrome.runtime.id` goes undefined and every `chrome.*` call throws
+ * "Extension context invalidated". Callers poll this to stop cleanly.
+ */
+export function extensionContextAlive(): boolean {
+  return Boolean(chrome.runtime?.id);
+}
+
 /** Send a typed request to the worker and await its reply. */
 export async function sendToWorker<T extends RequestType>(
   req: Extract<Request, { type: T }>,
 ): Promise<ResponseMap[T]> {
+  if (!extensionContextAlive()) throw new Error('Extension context invalidated');
   const reply = (await chrome.runtime.sendMessage(req)) as Reply<ResponseMap[T]>;
   if (!reply) throw new Error('No response from service worker');
   if (!reply.ok) throw new Error(reply.error);
@@ -127,6 +142,7 @@ export async function sendToWorker<T extends RequestType>(
 
 /** Subscribe to worker broadcasts; returns an unsubscribe fn. */
 export function onBroadcast(handler: (e: BroadcastEvent) => void): () => void {
+  if (!extensionContextAlive()) return () => {};
   const listener = (msg: unknown) => {
     if (msg && typeof msg === 'object' && 'type' in msg) {
       const t = (msg as { type: string }).type;

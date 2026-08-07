@@ -61,7 +61,9 @@ async function handle(req: Request): Promise<unknown> {
     case 'SEND_RESUME':
     case 'SEND_CANCEL':
     case 'SEND_RETRY_FAILED':
-    case 'SEND_GET_PROGRESS': {
+    case 'SEND_GET_PROGRESS':
+    case 'SEND_SCHEDULE':
+    case 'SEND_UNSCHEDULE': {
       return handleSendRequest(req);
     }
     case 'DATA_CAMPAIGN_CREATE':

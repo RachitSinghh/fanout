@@ -1,10 +1,18 @@
 # Product Requirements Document
 ## Project Codename: "Fanout" (working name)
-### A Chrome Extension for Sending Bulk Email That Arrives as Individual, Separate Messages
+### A Platform for Sending Bulk Email That Arrives as Individual, Separate Messages — a Chrome Extension, a Web Dashboard, and a Freemium Subscription
 
 **Document Owner:** Product Manager
-**Status:** Draft v1.0
-**Last Updated:** July 9, 2026
+**Status:** v2.0 — platform scope (supersedes v1.0 extension-only MVP)
+**Last Updated:** August 6, 2026
+
+> **v2.0 note:** The v1.0 MVP (a standalone Chrome extension, FEATURE_TICKETS 001–013)
+> is built and code-complete. This revision widens scope from "an extension" to
+> "a product": the extension stays the core sending surface, but it is now joined
+> by a **Next.js web app** (marketing site + a user dashboard + an operator/admin
+> monitoring dashboard) and a **freemium Stripe subscription**. See §1.5 for the
+> scope evolution and the phase plan. The privacy boundary is unchanged and
+> non-negotiable: recipient lists and email content never leave the browser.
 
 ---
 
@@ -20,6 +28,71 @@ The core insight behind this product: when someone sends an email to multiple re
 This is functionally a **mail-merge / personalized bulk sender**, built as a lightweight Chrome extension that sits on top of Gmail's web interface — not a full email marketing platform.
 
 > **Please confirm this interpretation before development begins.** The rest of this PRD assumes this definition. If the intent was different (e.g., scheduling, list management, or a full CRM), the scope below will need to change.
+
+---
+
+## 1.5 Scope Evolution — From Extension to Platform (v2.0)
+
+The v1.0 MVP proved the hard part: a resilient, throttled, resumable individual-send
+engine that runs entirely client-side (FEATURE_TICKETS 001–013, now code-complete).
+v2.0 turns that engine into a **business**. Three things get added around it — none
+of which change what the extension does or weaken the privacy story.
+
+### What's new in v2.0
+
+| Surface | What it is | Who it's for | New? |
+|---|---|---|---|
+| **Chrome Extension** | The sending tool — compose, import, personalize, send. Unchanged core; gains scheduling (016), attachments (018), a **telemetry emitter** and an **entitlement check**. | End users, inside Gmail | Extended |
+| **Marketing site** | The public landing page, rebuilt from the static `landing/index.html` into the Next.js app. Pricing page. Privacy Policy + ToS (required for OAuth verification). | Prospects | **New** |
+| **User dashboard** | Sign in with Google (same identity as the extension), see your plan + usage, upgrade/manage subscription via Stripe's portal. | End users, on the web | **New** |
+| **Admin / monitoring dashboard** | The operator's view: signups, free→paid conversion, MRR/churn, aggregate send health, scrubbed error telemetry, and per-user **metadata** drill-down. | The founder / operators | **New** |
+| **Backend** | Accounts, entitlements, Stripe webhooks, and telemetry ingestion. Implemented as **Next.js API routes** (not a separate service). | Internal | **New** (was "thin backend" in ARCHITECTURE, now realized) |
+
+### Monetization (resolves the v1.0 open questions in §9)
+
+**Freemium subscription, billed via Stripe.** The extension checks entitlement on
+launch and gates features/caps by tier:
+
+| Tier | Price | Daily cap | Scheduling | Attachments | Multi-account |
+|---|---|---|---|---|---|
+| **Free** | $0 | Low (safe default, e.g. ~50/day) | — | — | — |
+| **Pro** | $/mo | Higher (toward the Gmail ceiling) | ✓ | ✓ | — |
+| **Team** | $/mo | Pro caps | ✓ | ✓ | ✓ (post-MVP) |
+
+Exact prices and the free cap are locked before public launch (§9). The
+**subscription/plan is set only by verified Stripe webhooks**, never by the client
+(SECURITY §3.2).
+
+### The privacy boundary — the line the platform is built around
+
+Adding a server does **not** mean the server sees your mail. Hard rule, enforced in
+the schema and in code (ARCHITECTURE §4.2, SECURITY §3):
+
+- **The backend may store:** the user's own Google email, tier, subscription state,
+  and **numbers** — per-campaign counts (attempted / sent / failed / cap-hits),
+  scrubbed error strings, last-active timestamp.
+- **The backend must NEVER receive:** recipient addresses or names, CSV rows, subject
+  lines, or email bodies. These stay in the browser's IndexedDB, exactly as in v1.0.
+
+The admin dashboard's per-user drill-down obeys this: the operator sees *"Pro user,
+12 campaigns, 1,430 sends, last active 2d ago"* — never **who** was emailed. The pitch
+"we never see your recipients or your content" stays literally true.
+
+### Phase plan
+
+| Phase | Goal | Contains | Gate to next |
+|---|---|---|---|
+| **1 — Ship the extension (free)** | Live in the Chrome Web Store, onboard first users | Finish 016 + 018; add the telemetry-emitter + entitlement-check hooks (pointed at a stub); host the landing page; Privacy Policy + ToS; OAuth verification | Extension published |
+| **2 — Stand up the platform** | Paid product with dashboards | Next.js app; backend (accounts, telemetry, Stripe webhooks); billing + tiers; user dashboard; admin dashboard | — |
+
+Phase 1's telemetry + entitlement hooks are built *now* even though they point at
+nothing, so Phase 2 is "build the server the extension already expects," not a
+re-release through Chrome's review queue.
+
+> **OAuth verification is the long pole (weeks), not the code.** In Google "Testing"
+> mode the extension is fully functional for up to **100 test users** with no
+> verification — enough to launch Phase 1 and gather feedback while verification
+> runs in the background. It requires the Privacy Policy + ToS to be live first.
 
 ---
 
@@ -149,6 +222,12 @@ Explicit MVP boundaries:
 
 ## 8. Explicitly NOT Building in V1
 
+> **v2.0 update:** A web dashboard, an operator/admin monitoring view, and paid
+> subscription tiers are now **in scope** (§1.5). The exclusions below still hold —
+> in particular, the admin dashboard is *internal operations telemetry* (counts,
+> health, billing), **not** user-facing marketing analytics, and it never contains
+> recipient data.
+
 To keep scope tight and shippable, the following are deliberately excluded, even though they're common requests in this space:
 
 - ❌ Outlook, Yahoo, or other non-Gmail email provider support
@@ -175,10 +254,16 @@ To keep scope tight and shippable, the following are deliberately excluded, even
 | **Differentiation** | Established players exist (GMass, Mailmeteor, Yet Another Mail Merge). Must be clear early what the wedge is — likely UX simplicity, pricing, or a specific persona focus. |
 | **Monetization model** | Freemium with daily send caps? Per-seat? Needs validation before/during MVP, not after. |
 
-**Open questions to resolve before build:**
-1. What's the target daily/monthly send limit for free vs. paid tiers?
-2. Do we support Google Workspace (business) accounts differently from consumer Gmail (different limits/policies)?
-3. Is pricing per-user, per-send-volume, or flat subscription?
+**Open questions — status after v2.0:**
+1. ~~Target daily/monthly send limit for free vs. paid tiers?~~ **Resolved in shape**
+   (§1.5): freemium — Free = low safe daily cap, Pro/Team = higher. *Exact numbers
+   still locked before public launch.*
+2. Do we support Google Workspace (business) accounts differently from consumer Gmail
+   (different limits/policies)? — Still open; the safe-default cap covers it for now.
+3. ~~Is pricing per-user, per-send-volume, or flat subscription?~~ **Resolved** (§1.5):
+   **flat monthly subscription** per tier (not usage-metered), via Stripe.
+4. *(New)* Hosting: **Vercel (recommended) vs. the founder's AWS** — deferred, see
+   ARCHITECTURE §2.4. Does not block Phase 1.
 
 ---
 

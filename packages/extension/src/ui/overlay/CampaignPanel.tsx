@@ -49,7 +49,7 @@ export function CampaignPanel({ onClose }: { onClose: () => void }) {
           <Stepper current={step} />
         </div>
       </header>
-      <StepRouter step={step} />
+      <StepRouter step={step} onClose={onClose} />
       <TemplatesDialog open={templatesOpen} onClose={() => setTemplatesOpen(false)} />
     </>
   );
@@ -122,7 +122,7 @@ function Stepper({ current }: { current: Step }) {
   );
 }
 
-function StepRouter({ step }: { step: Step }) {
+function StepRouter({ step, onClose }: { step: Step; onClose: () => void }) {
   switch (step) {
     case 'import':
       return <ImportStep />;
@@ -131,7 +131,7 @@ function StepRouter({ step }: { step: Step }) {
     case 'review':
       return <ReviewStep />;
     case 'send':
-      return <SendStep />;
+      return <SendStep onClose={onClose} />;
     case 'report':
       return <ReportStep />;
   }

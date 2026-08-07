@@ -16,6 +16,7 @@ import {
 } from './rateLimiter';
 import { broadcast, type Request, type ProgressSnapshot } from '../messaging/channel';
 import { logger } from '../lib/logger';
+import { partitionDue } from './schedule';
 
 /**
  * Alarms-driven, resumable send engine (ARCHITECTURE §7.1). Each tick reads the
@@ -27,6 +28,7 @@ import { logger } from '../lib/logger';
 
 const ALARM_TICK = 'fanout-tick';
 const ALARM_RESUME = 'fanout-daily-resume';
+const ALARM_SCHEDULED = 'fanout-scheduled';
 /** Chrome clamps alarms to ~30s minimum; use a timer for shorter waits. */
 const ALARM_MIN_MS = 31_000;
 
@@ -55,6 +57,12 @@ export async function handleSendRequest(req: Request): Promise<unknown> {
       return { requeued: await retryFailed(req.campaignId) };
     case 'SEND_GET_PROGRESS':
       return getProgress(req.campaignId);
+    case 'SEND_SCHEDULE':
+      await schedule(req.campaignId, req.scheduledAt);
+      return { ok: true };
+    case 'SEND_UNSCHEDULE':
+      await unschedule(req.campaignId);
+      return { ok: true };
     default:
       throw new Error(`sendQueue: unhandled ${req.type}`);
   }
@@ -67,11 +75,14 @@ export async function resumeSending(): Promise<void> {
     await reclaimOrphans(active.id);
     logger.info('resuming in-flight campaign', { campaignId: active.id });
     scheduleTick(0);
-    return;
+  } else {
+    // A campaign paused for the daily cap may be resumable if the day rolled over.
+    const capped = await db.campaigns.filter((c) => c.status === 'paused' && c.pauseReason === 'daily_cap').first();
+    if (capped) await maybeResumeCapped(capped);
   }
-  // A campaign paused for the daily cap may be resumable if the day rolled over.
-  const capped = await db.campaigns.filter((c) => c.status === 'paused' && c.pauseReason === 'daily_cap').first();
-  if (capped) await maybeResumeCapped(capped);
+  // Start (or re-arm the alarm for) scheduled sends — including any whose time
+  // passed while the worker/browser was down (TICKET-016).
+  await promoteDueScheduled();
 }
 
 // ── State transitions ───────────────────────────────────────────────────────
@@ -334,6 +345,7 @@ async function complete(campaign: Campaign): Promise<void> {
   });
   await recomputeCounts(campaign.id);
   await broadcastProgress(campaign.id);
+  await promoteDueScheduled(); // pick up any campaign queued to start next
   logger.info('campaign complete', { campaignId: campaign.id });
 }
 
@@ -346,6 +358,67 @@ async function maybeResumeCapped(campaign: Campaign): Promise<void> {
     await resume(campaign.id);
   } else {
     chrome.alarms.create(ALARM_RESUME, { when: Date.now() + msUntilNextLocalMidnight() });
+  }
+}
+
+// ── Scheduled sends (TICKET-016) ─────────────────────────────────────────────
+
+/** Queue a campaign to auto-start at `scheduledAt` (epoch ms). */
+async function schedule(campaignId: string, scheduledAt: number): Promise<void> {
+  await db.campaigns.update(campaignId, {
+    status: 'scheduled',
+    scheduledAt,
+    pauseReason: null,
+    accountError: null,
+    updatedAt: Date.now(),
+  });
+  await promoteDueScheduled();
+  await broadcastProgress(campaignId);
+}
+
+/** Cancel a pending schedule, returning the campaign to a ready-to-send state. */
+async function unschedule(campaignId: string): Promise<void> {
+  await db.campaigns.update(campaignId, {
+    status: 'ready',
+    scheduledAt: null,
+    updatedAt: Date.now(),
+  });
+  await promoteDueScheduled(); // re-arm the alarm for any remaining scheduled sends
+  await broadcastProgress(campaignId);
+}
+
+/**
+ * Start scheduled campaigns whose time has arrived and (re)arm the wake alarm for
+ * the soonest future one. Called on the scheduled alarm, on worker wake, and when
+ * a campaign completes. Idempotent — safe to call repeatedly.
+ * ponytail: one active campaign at a time (matches the whole engine). If several
+ * come due at once the earliest starts and the rest wait for the next completion
+ * or wake — fine at one-founder scale; revisit if bulk scheduling ever lands.
+ */
+async function promoteDueScheduled(): Promise<void> {
+  const now = Date.now();
+  const scheduled = await db.campaigns.where('status').equals('scheduled').toArray();
+  const { due, nextAt } = partitionDue(scheduled, now);
+
+  const active = await db.campaigns.where('status').equals('sending').first();
+  if (!active && due.length > 0) {
+    due.sort((a, b) => (a.scheduledAt ?? 0) - (b.scheduledAt ?? 0));
+    const first = due[0];
+    if (first) {
+      logger.info('starting scheduled campaign', { campaignId: first.id });
+      await start(first.id);
+    }
+  }
+
+  // Re-arm: wake for the soonest future one; if sends are still due but couldn't
+  // start (busy, or more than one due at once), retry after the alarm minimum.
+  const leftoverDue = due.length - (!active ? 1 : 0);
+  if (nextAt != null) {
+    chrome.alarms.create(ALARM_SCHEDULED, { when: nextAt });
+  } else if (leftoverDue > 0) {
+    chrome.alarms.create(ALARM_SCHEDULED, { when: now + ALARM_MIN_MS });
+  } else {
+    await chrome.alarms.clear(ALARM_SCHEDULED);
   }
 }
 
@@ -448,5 +521,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
         .first();
       if (capped) await maybeResumeCapped(capped);
     })();
+  } else if (alarm.name === ALARM_SCHEDULED) {
+    void promoteDueScheduled();
   }
 });

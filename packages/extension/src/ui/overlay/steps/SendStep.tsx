@@ -1,23 +1,26 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   SendHorizontal, Pause, Play, ShieldCheck, AlertTriangle, XCircle, RotateCw,
-  CheckCircle2, Loader2, Clock, MinusCircle,
+  CheckCircle2, Loader2, Clock, MinusCircle, CalendarClock,
 } from 'lucide-react';
 import type { Recipient, RecipientStatus } from '@fanout/shared';
+import { extensionContextAlive } from '../../../messaging/channel';
 import { useCampaignStore } from '../../../store/campaignStore';
 import { useSendStatusStore } from '../../../store/sendStatusStore';
 import { useAuthStore } from '../../../store/authStore';
 import { StepLayout } from '../StepLayout';
 import { Button, Card, Callout } from '../../components/primitives';
 import { Dialog } from '../../components/Dialog';
+import { DateTimePicker } from '../../components/DateTimePicker';
 import { ProgressBar } from '../../components/ProgressBar';
 import { sendableRecipients } from '../../../services/preview';
 
-export function SendStep() {
+export function SendStep({ onClose }: { onClose: () => void }) {
   const campaign = useCampaignStore((s) => s.campaign);
   const recipients = useCampaignStore((s) => s.recipients);
   const goTo = useCampaignStore((s) => s.goTo);
-  const { progress, attach, detach, start, pause, resume, cancel } = useSendStatusStore();
+  const { progress, attach, detach, start, schedule, unschedule, pause, resume, cancel } =
+    useSendStatusStore();
 
   useEffect(() => {
     if (campaign) void attach(campaign.id);
@@ -27,12 +30,38 @@ export function SendStep() {
   const sendable = useMemo(() => sendableRecipients(recipients), [recipients]);
   const [confirmSend, setConfirmSend] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [scheduledFor, setScheduledFor] = useState<number | null>(null);
 
   if (!campaign) return null;
 
-  const started = progress
-    ? ['sending', 'paused', 'completed', 'cancelled', 'failed'].includes(progress.status)
-    : campaign.status !== 'draft' && campaign.status !== 'ready';
+  // Scheduling doesn't need the overlay open — the worker runs it. Show a brief
+  // confirmation, then close so the user monitors from the popup (TICKET-016 UX).
+  if (scheduledFor != null) return <ScheduledConfirm scheduledAt={scheduledFor} onClose={onClose} />;
+
+  const status = progress?.status ?? campaign.status;
+
+  if (status === 'scheduled') {
+    return (
+      <Scheduled
+        scheduledAt={campaign.scheduledAt}
+        count={sendable.length}
+        fromEmail={campaign.fromEmail}
+        onCancel={async () => {
+          await unschedule();
+        }}
+        onSendNow={async () => {
+          await start();
+        }}
+      />
+    );
+  }
+
+  const started =
+    status === 'sending' ||
+    status === 'paused' ||
+    status === 'completed' ||
+    status === 'cancelled' ||
+    status === 'failed';
 
   if (!started) {
     return (
@@ -47,6 +76,11 @@ export function SendStep() {
         onConfirm={async () => {
           setConfirmSend(false);
           await start();
+        }}
+        onSchedule={async (at) => {
+          await schedule(at);
+          setScheduledFor(at);
+          window.setTimeout(onClose, 2000);
         }}
         onBack={() => goTo('review')}
       />
@@ -80,6 +114,7 @@ function PreSend({
   onOpenConfirm,
   onCloseConfirm,
   onConfirm,
+  onSchedule,
   onBack,
 }: {
   fromEmail: string;
@@ -90,6 +125,7 @@ function PreSend({
   onOpenConfirm: () => void;
   onCloseConfirm: () => void;
   onConfirm: () => void;
+  onSchedule: (scheduledAt: number) => void;
   onBack: () => void;
 }) {
   const delayText =
@@ -100,6 +136,10 @@ function PreSend({
   const remaining = progress ? Math.max(0, progress.dailyCap - progress.dailyCount) : null;
   const exceedsToday = remaining != null && count > remaining;
 
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState<number | null>(null);
+  const validAt = scheduledAt != null && scheduledAt - Date.now() >= 60_000;
+
   return (
     <StepLayout
       footer={
@@ -107,9 +147,21 @@ function PreSend({
           <Button variant="secondary" onClick={onBack}>
             Back
           </Button>
-          <Button size="lg" leadingIcon={<SendHorizontal size={18} />} disabled={count === 0} onClick={onOpenConfirm}>
-            Send {count} email{count === 1 ? '' : 's'}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              size="lg"
+              aria-label="Schedule for later"
+              title="Schedule for later"
+              disabled={count === 0}
+              onClick={() => setScheduleOpen(true)}
+              className="w-11 !px-0"
+              leadingIcon={<CalendarClock size={18} />}
+            />
+            <Button size="lg" leadingIcon={<SendHorizontal size={18} />} disabled={count === 0} onClick={onOpenConfirm}>
+              Send {count} email{count === 1 ? '' : 's'}
+            </Button>
+          </div>
         </>
       }
     >
@@ -162,6 +214,42 @@ function PreSend({
         From <span className="font-mono">{fromEmail}</span>. Each person gets their
         own message, {delayText}.
       </Dialog>
+
+      <Dialog
+        open={scheduleOpen}
+        onClose={() => setScheduleOpen(false)}
+        icon={<CalendarClock className="text-brand-400" size={28} />}
+        title="Schedule this send"
+        actions={
+          <>
+            <Button variant="secondary" onClick={() => setScheduleOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={!validAt}
+              onClick={() => {
+                if (scheduledAt == null) return;
+                setScheduleOpen(false);
+                onSchedule(scheduledAt);
+              }}
+            >
+              Schedule
+            </Button>
+          </>
+        }
+      >
+        Fanout will start sending {count} email{count === 1 ? '' : 's'} automatically at
+        the time you pick. Keep this browser open and signed in — sending runs on your
+        machine.
+        <div className="mt-3">
+          <DateTimePicker value={scheduledAt} minMs={Date.now()} onChange={setScheduledAt} />
+        </div>
+        {scheduledAt != null && !validAt && (
+          <p className="mt-2 text-caption text-warning-fg">
+            Pick a time at least a minute from now.
+          </p>
+        )}
+      </Dialog>
     </StepLayout>
   );
 }
@@ -172,6 +260,122 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
       <dt className="text-[var(--text-muted)]">{label}</dt>
       <dd className="text-right">{children}</dd>
     </div>
+  );
+}
+
+function formatWhen(ms: number): string {
+  return new Date(ms).toLocaleString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+/** Brief "scheduled ✓" beat shown right after scheduling; the overlay then
+ *  auto-closes, since the worker runs the send in the background (TICKET-016). */
+function ScheduledConfirm({ scheduledAt, onClose }: { scheduledAt: number; onClose: () => void }) {
+  return (
+    <StepLayout footer={<Button variant="ghost" onClick={onClose}>Close now</Button>}>
+      <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+        <div className="grid h-14 w-14 place-items-center rounded-full bg-brand-600/15 text-brand-400">
+          <CheckCircle2 size={30} />
+        </div>
+        <h2 className="text-xl font-semibold">Scheduled</h2>
+        <p className="max-w-[44ch] text-body text-[var(--text-secondary)]">
+          Fanout will start sending at{' '}
+          <span className="text-brand-400">{formatWhen(scheduledAt)}</span>. It runs in the
+          background — you can close this and track progress from the Fanout icon in your toolbar.
+        </p>
+      </div>
+    </StepLayout>
+  );
+}
+
+/** A campaign queued to auto-start later (TICKET-016). Cancelable before it fires. */
+function Scheduled({
+  scheduledAt,
+  count,
+  fromEmail,
+  onCancel,
+  onSendNow,
+}: {
+  scheduledAt: number | null;
+  count: number;
+  fromEmail: string;
+  onCancel: () => void;
+  onSendNow: () => void;
+}) {
+  // "Send now instead" is confirmed, never a direct fire — a stray click right
+  // after Schedule (the button lands where "Schedule" just was) must not blast the
+  // campaign early. It opens this dialog instead (root-caused, TICKET-016).
+  const [confirmNow, setConfirmNow] = useState(false);
+  const whenText = scheduledAt ? formatWhen(scheduledAt) : 'the scheduled time';
+
+  return (
+    <StepLayout
+      footer={
+        <>
+          <Button variant="ghost" onClick={() => setConfirmNow(true)}>
+            Send now instead
+          </Button>
+          <Button leadingIcon={<CalendarClock size={16} />} onClick={onCancel}>
+            Cancel schedule
+          </Button>
+        </>
+      }
+    >
+      <div className="flex items-center gap-2">
+        <h2 className="text-xl font-semibold">Scheduled</h2>
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-strong)] px-2 py-0.5 text-caption text-brand-400">
+          <CalendarClock size={13} /> waiting
+        </span>
+      </div>
+      <Card className="mt-4">
+        <dl className="flex flex-col gap-2.5 text-body">
+          <Row label="Sends">
+            <span className="font-tnum">{count}</span> individual email{count === 1 ? '' : 's'}
+          </Row>
+          <Row label="From">
+            <span className="font-mono text-mono-sm">{fromEmail}</span>
+          </Row>
+          <Row label="Starts">
+            <span className="font-tnum text-brand-400">{scheduledAt ? formatWhen(scheduledAt) : 'a scheduled time'}</span>
+          </Row>
+        </dl>
+      </Card>
+
+      <Callout tone="info" icon={<CalendarClock size={16} />} className="mt-3">
+        Fanout starts automatically at the scheduled time. Keep this browser open and
+        signed in — sending runs on your machine, not a server.
+      </Callout>
+
+      <Dialog
+        open={confirmNow}
+        onClose={() => setConfirmNow(false)}
+        icon={<SendHorizontal className="text-brand-400" size={28} />}
+        title="Send now instead of waiting?"
+        actions={
+          <>
+            <Button variant="secondary" onClick={() => setConfirmNow(false)}>
+              Keep schedule
+            </Button>
+            <Button
+              onClick={() => {
+                setConfirmNow(false);
+                onSendNow();
+              }}
+            >
+              Send now
+            </Button>
+          </>
+        }
+      >
+        This cancels the {whenText} schedule and starts sending {count} email
+        {count === 1 ? '' : 's'} <strong>immediately</strong>.
+      </Dialog>
+    </StepLayout>
   );
 }
 
@@ -272,6 +476,12 @@ function Sending({
         {gapText}{capText}
       </p>
 
+      {(isSending || isPaused) && (
+        <p className="mt-2 text-caption text-[var(--text-muted)]">
+          Runs in the background — you can close this and track it from the Fanout icon.
+        </p>
+      )}
+
       {accountStopped && (
         <Callout tone="danger" icon={<XCircle size={16} />} className="mt-4">
           <p className="text-body-strong">Sending stopped to protect your Gmail account.</p>
@@ -325,7 +535,10 @@ function RecipientFeed({ active }: { active: boolean }) {
 
   useEffect(() => {
     if (!active) return;
-    const id = setInterval(() => void refresh(), 1500);
+    const id = setInterval(() => {
+      if (!extensionContextAlive()) return clearInterval(id);
+      void refresh().catch(() => {});
+    }, 1500);
     return () => clearInterval(id);
   }, [active, refresh]);
 

@@ -85,7 +85,9 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
     // If a campaign is already sending/paused, resume showing it (so reopening
     // the overlay mid-send reflects live state — TICKET-011).
     const list = await dbClient.listCampaigns();
-    const active = list.find((c) => c.status === 'sending' || c.status === 'paused');
+    const active = list.find(
+      (c) => c.status === 'sending' || c.status === 'paused' || c.status === 'scheduled',
+    );
     if (!active) return false;
     const recipients = await dbClient.listRecipients(active.id);
     set({ campaign: active, recipients, step: 'send', importSummary: null });

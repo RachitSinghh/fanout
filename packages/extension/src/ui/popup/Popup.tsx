@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { LogIn, ShieldCheck, Send, Inbox, Download } from 'lucide-react';
+import { LogIn, ShieldCheck, Send, Inbox, Download, ChevronLeft } from 'lucide-react';
 import type { Campaign } from '@fanout/shared';
 import { useAuthStore } from '../../store/authStore';
 import { sendToWorker } from '../../messaging/channel';
@@ -152,20 +152,83 @@ const STATUS_TONE: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'n
   ready: 'neutral',
 };
 
+function whenLabel(ms: number | null | undefined): string {
+  if (!ms) return 'a scheduled time';
+  return new Date(ms).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function rowSubtitle(c: Campaign): string {
+  if (c.status === 'scheduled') return `Scheduled · ${whenLabel(c.scheduledAt)}`;
+  const failed = c.failedCount > 0 ? ` · ${c.failedCount} failed` : '';
+  return `${c.sentCount}/${c.totalRecipients} sent${failed}`;
+}
+
+async function exportCampaign(c: Campaign) {
+  const recipients = await dbClient.listRecipients(c.id);
+  downloadResultsCsv(c, recipients);
+}
+
+/** Re-renders every second while `active`, so callers can show a live countdown. */
+function useTick(active: boolean): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!active) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [active]);
+  return now;
+}
+
+function formatCountdown(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m`;
+  if (m > 0) return `${m}m ${String(sec).padStart(2, '0')}s`;
+  return `${sec}s`;
+}
+
+/** Live "starts in …" countdown to a scheduled campaign's start (TICKET-016). */
+function ScheduledCountdown({ at }: { at: number | null }) {
+  const now = useTick(true);
+  if (!at) return <p className="mt-0.5 text-caption text-brand-400">Scheduled</p>;
+  const remaining = at - now;
+  return (
+    <p className="mt-0.5 font-tnum text-caption text-brand-400">
+      {remaining > 0 ? `Starts in ${formatCountdown(remaining)}` : 'Starting…'} · {whenLabel(at)}
+    </p>
+  );
+}
+
 function RecentCampaigns() {
   const [campaigns, setCampaigns] = useState<Campaign[] | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
-    void dbClient.listCampaigns().then((list) =>
-      // Only surface campaigns that actually started or finished.
-      setCampaigns(list.filter((c) => c.status !== 'draft')),
-    );
+    let alive = true;
+    const load = () =>
+      void dbClient.listCampaigns().then((list) => {
+        // Only surface campaigns that actually started, scheduled, or finished.
+        if (alive) setCampaigns(list.filter((c) => c.status !== 'draft' && c.status !== 'ready'));
+      });
+    load();
+    // Live-refresh while the popup is open so a sending/scheduled batch updates
+    // its counts here — no need to keep the Gmail overlay open (TICKET-016 UX).
+    const id = setInterval(load, 2000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
   }, []);
 
-  async function exportCampaign(c: Campaign) {
-    const recipients = await dbClient.listRecipients(c.id);
-    downloadResultsCsv(c, recipients);
-  }
+  const selected = selectedId ? campaigns?.find((c) => c.id === selectedId) ?? null : null;
+  if (selected) return <CampaignReport campaign={selected} onBack={() => setSelectedId(null)} />;
 
   return (
     <Card>
@@ -185,19 +248,20 @@ function RecentCampaigns() {
           {campaigns.slice(0, 8).map((c) => (
             <li
               key={c.id}
-              className="flex items-center justify-between gap-2 rounded-md border border-[var(--border)] p-2"
+              className="flex items-center justify-between gap-2 rounded-md border border-[var(--border)] transition-colors hover:border-[var(--border-strong)]"
             >
-              <div className="min-w-0">
-                <p className="truncate text-body-strong">{c.name}</p>
-                <p className="font-tnum text-caption text-[var(--text-muted)]">
-                  {c.sentCount}/{c.totalRecipients} sent
-                  {c.failedCount > 0 ? ` · ${c.failedCount} failed` : ''}
-                </p>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
+              <button
+                onClick={() => setSelectedId(c.id)}
+                className="flex min-w-0 flex-1 flex-col items-start gap-0.5 p-2 text-left"
+              >
+                <span className="max-w-full truncate text-body-strong">{c.name}</span>
+                <span className="font-tnum text-caption text-[var(--text-muted)]">{rowSubtitle(c)}</span>
+              </button>
+              <div className="flex shrink-0 items-center gap-2 pr-2">
                 <Badge tone={STATUS_TONE[c.status] ?? 'neutral'}>{c.status}</Badge>
                 <button
                   aria-label="Export CSV"
+                  title="Export CSV"
                   onClick={() => void exportCampaign(c)}
                   className="text-[var(--text-muted)] hover:text-brand-600"
                 >
@@ -209,6 +273,73 @@ function RecentCampaigns() {
         </ul>
       )}
     </Card>
+  );
+}
+
+/** Compact per-campaign summary, opened from a Recent-campaigns row (TICKET-016). */
+function CampaignReport({ campaign, onBack }: { campaign: Campaign; onBack: () => void }) {
+  const total =
+    campaign.totalRecipients || campaign.sentCount + campaign.failedCount + campaign.skippedCount;
+  const pct = total > 0 ? Math.round((campaign.sentCount / total) * 100) : 0;
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between">
+        <button
+          onClick={onBack}
+          className="inline-flex items-center gap-1 text-caption text-[var(--text-muted)] hover:text-brand-600"
+        >
+          <ChevronLeft size={14} /> Recent campaigns
+        </button>
+        <Badge tone={STATUS_TONE[campaign.status] ?? 'neutral'}>{campaign.status}</Badge>
+      </div>
+
+      <p className="mt-3 truncate text-body-strong">{campaign.name}</p>
+      {campaign.status === 'scheduled' && <ScheduledCountdown at={campaign.scheduledAt} />}
+
+      <div className="mt-3 flex items-center gap-4">
+        <div
+          className="grid h-16 w-16 shrink-0 place-items-center rounded-full"
+          style={{ background: `conic-gradient(#E8B04B ${pct * 3.6}deg, var(--border) 0deg)` }}
+        >
+          <div className="grid h-[52px] w-[52px] place-items-center rounded-full bg-[var(--surface-sunken)]">
+            <span className="font-tnum text-caption font-semibold">{pct}%</span>
+          </div>
+        </div>
+        <dl className="flex flex-1 flex-col gap-1.5 text-body">
+          <ReportRow label="Sent" value={campaign.sentCount} tone="text-brand-400" />
+          <ReportRow
+            label="Failed"
+            value={campaign.failedCount}
+            tone={campaign.failedCount ? 'text-danger-fg' : undefined}
+          />
+          <ReportRow
+            label="Skipped"
+            value={campaign.skippedCount}
+            tone={campaign.skippedCount ? 'text-warning-fg' : undefined}
+          />
+        </dl>
+      </div>
+
+      <Button
+        className="mt-4 w-full"
+        variant="secondary"
+        size="md"
+        leadingIcon={<Download size={16} />}
+        onClick={() => void exportCampaign(campaign)}
+      >
+        Export CSV
+      </Button>
+    </Card>
+  );
+}
+
+function ReportRow({ label, value, tone }: { label: string; value: number; tone?: string }) {
+  return (
+    <div className="flex items-center justify-between">
+      <dt className="text-[var(--text-muted)]">{label}</dt>
+      <dd className={`font-tnum ${tone ?? 'text-[var(--text-primary)]'}`}>{value}</dd>
+    </div>
   );
 }
 

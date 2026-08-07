@@ -4,10 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Fanout is a Manifest V3 Chrome extension that sends **N individual emails** (one
-`gmail.send` per recipient) from the user's own Gmail, with per-recipient
-personalization, throttling, and daily-cap safety. It is a personalization tool,
-not a mass-mailer — there is no server; all PII stays in the browser.
+Fanout sends **N individual emails** (one `gmail.send` per recipient) from the
+user's own Gmail, with per-recipient personalization, throttling, and daily-cap
+safety. It is a personalization tool, not a mass-mailer.
+
+As of **v2.0** (PRD §1.5) it is a **platform**, not just an extension: a Manifest
+V3 Chrome extension (the sending tool) **plus a Next.js web app** — marketing site,
+user dashboard, operator/admin dashboard, and the backend API routes — with a
+**freemium Stripe subscription**. There **is** now a server, but the privacy
+boundary is unchanged and load-bearing: **recipient lists and email content never
+leave the browser.** The backend stores identity, billing, and counts/scrubbed
+metadata only — never a recipient address, name, subject, or body (ARCHITECTURE
+§4.2, SECURITY §3). Every new server-side field must pass that test.
 
 Deep specs live in `PRD.md`, `ARCHITECTURE.md`, `SECURITY_AND_ACCESS.md`,
 `FRONTEND_SPEC.md`, and `FEATURE_TICKETS.md`. Code comments cite them by section

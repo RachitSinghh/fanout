@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { ProgressSnapshot } from '../messaging/channel';
-import { sendToWorker, onBroadcast } from '../messaging/channel';
+import { sendToWorker, onBroadcast, extensionContextAlive } from '../messaging/channel';
 
 interface SendStatusStore {
   progress: ProgressSnapshot | null;
@@ -9,6 +9,8 @@ interface SendStatusStore {
   detach: () => void;
   refresh: () => Promise<void>;
   start: () => Promise<void>;
+  schedule: (scheduledAt: number) => Promise<void>;
+  unschedule: () => Promise<void>;
   pause: () => Promise<void>;
   resume: () => Promise<void>;
   cancel: () => Promise<void>;
@@ -31,8 +33,12 @@ export const useSendStatusStore = create<SendStatusStore>((set, get) => ({
       }
     });
     // Poll as a fallback in case a broadcast is missed while the panel is open.
-    poll = setInterval(() => void get().refresh(), 1500);
-    await get().refresh();
+    // Stop cleanly if the extension was reloaded (orphaned content script).
+    poll = setInterval(() => {
+      if (!extensionContextAlive()) return get().detach();
+      void get().refresh().catch(() => {});
+    }, 1500);
+    await get().refresh().catch(() => {});
   },
 
   detach: () => {
@@ -53,6 +59,20 @@ export const useSendStatusStore = create<SendStatusStore>((set, get) => ({
     const { campaignId } = get();
     if (!campaignId) return;
     await sendToWorker({ type: 'SEND_START', campaignId });
+    await get().refresh();
+  },
+
+  schedule: async (scheduledAt) => {
+    const { campaignId } = get();
+    if (!campaignId) return;
+    await sendToWorker({ type: 'SEND_SCHEDULE', campaignId, scheduledAt });
+    await get().refresh();
+  },
+
+  unschedule: async () => {
+    const { campaignId } = get();
+    if (!campaignId) return;
+    await sendToWorker({ type: 'SEND_UNSCHEDULE', campaignId });
     await get().refresh();
   },
 
