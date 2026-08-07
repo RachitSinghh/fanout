@@ -3,9 +3,25 @@
 ## Project: Fanout — Gmail-Native Personalized Bulk Sender (Chrome Extension)
 
 **Author:** Senior Software Architect
-**Status:** v1.0 — for MVP build
-**Last Updated:** July 9, 2026
-**Companion doc:** [PRD.md](./PRD.md)
+**Status:** v2.0 — platform build (extends the v1.0 MVP architecture)
+**Last Updated:** August 6, 2026
+**Companion docs:** [PRD.md](./PRD.md) · [SECURITY_AND_ACCESS.md](./SECURITY_AND_ACCESS.md) · [FRONTEND_SPEC.md](./FRONTEND_SPEC.md)
+
+> **v2.0 delta (read first).** The v1.0 MVP (extension + the "thin backend" sketched
+> below) is built. v2.0 *realizes* that backend and adds a **Next.js web app**
+> (marketing site + user dashboard + operator/admin dashboard). Three concrete changes
+> to what follows:
+> 1. **The backend is Next.js API routes**, not a separate Hono/Cloud Run service. The
+>    ~6 endpoints become route handlers co-located with the web app (§2.4). The Hono
+>    rows in §2.2 are superseded but kept for reference.
+> 2. **Two telemetry tables are added** (`campaign_stats`, `error_events`) so the admin
+>    dashboard can show aggregate send-health and scrubbed errors — **counts and
+>    metadata only, never recipient PII** (§4.2).
+> 3. **Hosting shifts to Vercel** (recommended) or the founder's **AWS** (fallback) —
+>    an OPEN DECISION (§2.4). Cloud Run in §2.2 is the old MVP-era pick.
+>
+> The privacy boundary (§0, §7.4) is unchanged and load-bearing: recipient lists and
+> email bodies never leave the browser.
 
 ---
 
@@ -66,6 +82,28 @@ This keeps us cheap to operate, fast to ship, defensible on privacy, and — cri
 
 **Key principle:** the arrow that carries email content (1) goes **directly from the browser to Google**. Our backend (2) only ever sees identity, license status, and aggregate counts — never recipients or email bodies.
 
+**v2.0 — the third box: the Next.js web app.** The "Fanout Backend (thin)" box above is
+now realized *inside* a **Next.js app** that also serves three browser surfaces on the
+public web (outside Gmail):
+
+```
+   ┌──────────────────────────── Next.js app (Vercel or AWS) ────────────────────────────┐
+   │  Marketing site + Pricing        User dashboard             Admin dashboard (gated)  │
+   │  (landing, Privacy, ToS)         (plan, usage, billing)     (metrics, health, users) │
+   │            └──────────────────── React (shadcn/ui) ────────────────────┘             │
+   │                                        │                                             │
+   │   API routes:  /api/entitlement   /api/telemetry   /api/stripe-webhook   /api/auth   │
+   │                                        │                                             │
+   │                                   PostgreSQL (Prisma)  ── identity, billing, counts  │
+   └─────────────────────────────────────────────────────────────────────────────────────┘
+        ▲ same Google identity as the extension        ▲ extension POSTs scrubbed counts/errors
+```
+
+The **extension calls these API routes** (`/api/entitlement` on launch, `/api/telemetry`
+after each campaign). The web dashboards are just authenticated views over the same
+Postgres. Recipient data is still never in this picture — it stays in the browser's
+IndexedDB.
+
 ---
 
 ## 2. Recommended Tech Stack (with reasoning)
@@ -86,6 +124,13 @@ This keeps us cheap to operate, fast to ship, defensible on privacy, and — cri
 | **Testing** | **Vitest** (unit) + **Playwright** (E2E against a Gmail-like fixture) | Vitest pairs natively with Vite. Playwright can drive the extension in a real Chromium context to test injection and the send flow end-to-end. |
 
 ### 2.2 Backend (thin control plane)
+
+> **v2.0:** the backend is now **Next.js API route handlers** inside the web app
+> (§2.4), not a standalone service. That collapses "frontend + separate Hono backend"
+> into one deployable for a solo operator. The **Hono** and **Cloud Run** rows below are
+> superseded — kept for reference / as the fallback if the API ever needs to scale
+> independently of the site. **Prisma, PostgreSQL, Stripe, and the Google OAuth model
+> are unchanged** and carry straight over to the route handlers.
 
 | Layer | Choice | Why this, not the alternative |
 |---|---|---|
@@ -110,9 +155,39 @@ This keeps us cheap to operate, fast to ship, defensible on privacy, and — cri
 
 ---
 
+### 2.4 Web app (Next.js) — marketing + dashboards + API (v2.0)
+
+One Next.js app is the entire web presence *and* the backend. Marketing pages, the user
+dashboard, the admin dashboard, and the API routes all live together — fewest moving
+parts for a solo operator, and the API routes share types with the extension via
+`packages/shared`.
+
+| Layer | Choice | Why this, not the alternative |
+|---|---|---|
+| **Framework** | **Next.js (App Router)** | Founder-specified. One app serves static marketing, authed dashboards (server components + server actions), and the API routes. SSR/ISR gives the marketing site good SEO/speed for OAuth-review credibility. |
+| **Components** | **shadcn/ui** (+ **Aceternity** on marketing only) | Own the component source (no black-box dep), themeable to the landing palette (FRONTEND_SPEC §2). Aceternity supplies the marketing flourish; dashboards stay plain shadcn. |
+| **Motion** | **Framer Motion + GSAP/ScrollTrigger** — *marketing pages only* | The heavy motion stack sells on the landing page and gets in the way inside dashboards. Dashboards use restrained shadcn transitions (FRONTEND_SPEC §1). |
+| **Auth (web)** | **Sign in with Google** — same `google_sub` identity as the extension | No second account system. The dashboard verifies the Google ID token exactly as the API does (SECURITY §1.5). |
+| **Admin gate** | **Allowlist of operator `google_sub`s** (env var) | The admin dashboard is the same app under an `/admin` segment, authorized only for listed operator accounts (SECURITY §2). No separate admin auth system. |
+| **DB / ORM / billing** | **PostgreSQL + Prisma + Stripe** (unchanged from §2.2) | Carries over verbatim; the Prisma client runs inside API route handlers. |
+| **Hosting** | **Vercel (recommended)** *or* **AWS (founder has it)** — **OPEN DECISION** | Vercel is Next.js-native → near-zero ops (push to deploy, managed Postgres via Neon add-on). AWS (Amplify/SST + RDS) reuses infra the founder already owns but puts ops on them. Default to Vercel unless a cost/mandate forces AWS. Not on the Phase-1 critical path. |
+
+**Telemetry ingestion is deliberately trivial:** `/api/telemetry` verifies the caller's
+Google ID token, then upserts a `campaign_stats` row and inserts any `error_events` —
+plain row writes, no queue, no stream processor, no separate analytics service. If
+volume ever demands it, batch client-side and add a queue *then* — not now.
+
 ## 3. Complete File & Folder Structure
 
 A **pnpm monorepo** with three packages: the extension, the backend, and a shared contracts package.
+
+> **v2.0:** the `packages/backend/` tree below becomes a **Next.js app** —
+> `packages/web/` (or `apps/web/`) — that holds the marketing pages, the user and admin
+> dashboards (`app/`), and the API route handlers (`app/api/entitlement`,
+> `app/api/telemetry`, `app/api/stripe/webhook`, `app/api/auth`) in place of the Hono
+> `routes/`. The `services/`, `db/` (Prisma), and `prisma/` folders shown for the
+> backend carry over verbatim into the Next.js app. `packages/shared/` is still imported
+> by both the extension and the web app for the request/response contracts.
 
 ```
 fanout/
@@ -380,6 +455,42 @@ Aggregate send counts reported by the extension, used to enforce freemium quotas
 
 **Relationship:** `users` 1 —— many `usage_records` (one per period).
 
+#### Table: `campaign_stats` (v2.0 — feeds the admin "send health" view)
+One row per campaign the user runs, holding **only counts**. This is what powers
+aggregate send-health metrics and per-user drill-down. **No subject, no body, no
+recipient rows — just numbers keyed by an opaque campaign id.**
+
+| Field | Type | Plain-English meaning |
+|---|---|---|
+| `id` | UUID (PK) | Row id. |
+| `user_id` | UUID (FK → `users.id`) | Whose campaign. **Indexed.** |
+| `campaign_ref` | string | The extension's local campaign UUID — an opaque id, **not** reversible to any recipient. Lets a re-report update the same row (idempotent upsert). |
+| `attempted` | integer | Recipients attempted. |
+| `sent` | integer | Successful sends. |
+| `failed` | integer | Permanent failures. |
+| `cap_hits` | integer | Times the daily cap paused the run. |
+| `started_at` / `reported_at` | timestamptz | When the run began / when the extension last reported. |
+
+**Relationship:** `users` 1 —— many `campaign_stats`. Unique on `(user_id, campaign_ref)`
+so re-reports upsert.
+
+#### Table: `error_events` (v2.0 — feeds admin error telemetry, ticket 033)
+Append-only, **PII-scrubbed** extension/send errors for ops visibility. The extension
+scrubs via `lib/logger.ts` **before** it leaves the browser (SECURITY §5.6).
+
+| Field | Type | Plain-English meaning |
+|---|---|---|
+| `id` | UUID (PK) | Row id. |
+| `user_id` | UUID (FK → `users.id`, nullable) | Whose extension (null if pre-auth). **Indexed.** |
+| `kind` | string | Category, e.g. `send_transient`, `send_account`, `oauth_failed`, `worker_crash`. |
+| `http_status` | integer \| null | Gmail/API status if applicable (429, 403…). |
+| `message` | string | **Scrubbed** message — no addresses, names, subjects, or bodies. |
+| `ext_version` | string | Extension version, for regression triage. |
+| `created_at` | timestamptz | When it occurred. **Indexed** for time-range queries. |
+
+**Relationship:** `users` 1 —— many `error_events`. Retention-capped (e.g. 90 days) —
+it's ops telemetry, not a permanent record.
+
 #### Table: `webhook_events` (idempotency ledger)
 Records processed Stripe event ids so a re-delivered webhook is never applied twice.
 
@@ -409,6 +520,8 @@ model User {
   googleToken   GoogleToken?
   subscription  Subscription?
   usageRecords  UsageRecord[]
+  campaignStats CampaignStat[]
+  errorEvents   ErrorEvent[]
   @@map("users")
 }
 
@@ -447,6 +560,36 @@ model UsageRecord {
   updatedAt DateTime @updatedAt @map("updated_at")
   @@unique([userId, period])
   @@map("usage_records")
+}
+
+model CampaignStat {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaignRef String   @map("campaign_ref")
+  attempted   Int      @default(0)
+  sent        Int      @default(0)
+  failed      Int      @default(0)
+  capHits     Int      @default(0) @map("cap_hits")
+  startedAt   DateTime @map("started_at")
+  reportedAt  DateTime @updatedAt @map("reported_at")
+  @@unique([userId, campaignRef])
+  @@index([userId])
+  @@map("campaign_stats")
+}
+
+model ErrorEvent {
+  id         String   @id @default(uuid())
+  userId     String?  @map("user_id")
+  user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind       String
+  httpStatus Int?     @map("http_status")
+  message    String
+  extVersion String   @map("ext_version")
+  createdAt  DateTime @default(now()) @map("created_at")
+  @@index([userId])
+  @@index([createdAt])
+  @@map("error_events")
 }
 
 model WebhookEvent {
@@ -546,7 +689,17 @@ Gmail's DOM is obfuscated and changes without notice. Isolate this risk:
 - Consider evaluating the community **InboxSDK** library as an insulation layer, at the cost of an external dependency.
 
 ### 7.4 Privacy posture is a feature, defend it
-Keeping recipient PII and email bodies exclusively client-side is what lets us make a strong privacy claim, shortens Google's OAuth review, and keeps GDPR/CAN-SPAM surface minimal (PRD explicitly defers compliance tooling). **Do not** casually add server-side recipient storage for a "nice to have" — it would undermine the core value prop. Open/click tracking (post-MVP) is the one feature that will require server infrastructure (a pixel/redirect endpoint + an events table); design that as an explicitly opt-in, isolated subsystem when the time comes.
+Keeping recipient PII and email bodies exclusively client-side is what lets us make a strong privacy claim, shortens Google's OAuth review, and keeps GDPR/CAN-SPAM surface minimal (PRD explicitly defers compliance tooling). **Do not** casually add server-side recipient storage for a "nice to have" — it would undermine the core value prop. Open/click tracking (post-MVP) is the one feature that will require server infrastructure for *recipient activity* (a pixel/redirect endpoint + an events table); design that as an explicitly opt-in, isolated subsystem when the time comes.
+
+**v2.0 clarification — a server now exists, and the line still holds.** The platform
+backend (accounts, billing, `campaign_stats`, `error_events`) is server infrastructure,
+but it stores **only the user's own identity, their billing state, and numbers/metadata**
+— never a recipient address, name, subject, or body. The test for any new server-side
+field or endpoint is one question: *could this reveal who a user emailed or what they
+wrote?* If yes, it does not get built server-side. `campaign_stats` uses an **opaque
+`campaign_ref`** (not derivable to recipients) and `error_events` are **scrubbed in the
+browser before upload** precisely to keep this test passing. Open/click tracking remains
+the sole feature that would cross it — and stays deferred.
 
 ### 7.5 Idempotency for both sends and billing
 - **Sends:** before sending to a recipient, re-check their status is still `pending` inside the transaction — prevents double-sends if the worker restarts between "send" and "record success."

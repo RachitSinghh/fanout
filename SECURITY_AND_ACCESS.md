@@ -3,10 +3,19 @@
 ## Project: Fanout — Gmail-Native Personalized Bulk Sender (Chrome Extension)
 
 **Author:** Security Engineer (early-stage product security)
-**Status:** v1.0 — for MVP build
-**Last Updated:** July 9, 2026
-**Companion docs:** [PRD.md](./PRD.md) · [ARCHITECTURE.md](./ARCHITECTURE.md)
+**Status:** v2.0 — platform build (extends the v1.0 MVP security model)
+**Last Updated:** August 6, 2026
+**Companion docs:** [PRD.md](./PRD.md) · [ARCHITECTURE.md](./ARCHITECTURE.md) · [FRONTEND_SPEC.md](./FRONTEND_SPEC.md)
 **Audience:** The founder (non-technical) + the engineer building this
+
+> **v2.0 delta (read first).** v2.0 adds a Next.js web app with two new authenticated
+> surfaces: a **user dashboard** and an **operator/admin dashboard**. Security impact,
+> in one breath: (1) the admin dashboard is gated to an **allowlist of operator Google
+> accounts** — see §2.5; (2) the extension now uploads **telemetry** (`campaign_stats`,
+> `error_events`) that must be **scrubbed of PII in the browser first** and scoped to
+> the sending user — see §3.2 and §5.6; (3) nothing about the privacy boundary changes —
+> the new tables hold **counts and scrubbed metadata only**, so §0's promise ("if your
+> database leaked, no recipient's information would be exposed") stays true.
 
 ---
 
@@ -107,6 +116,33 @@ When Fanout sends email, it is acting **on behalf of the user, using permission 
 
 ---
 
+### 2.5 The admin/monitoring dashboard — a privileged surface, gated by allowlist (v2.0)
+
+v2.0 adds an **operator dashboard** (the founder's monitoring view). It is the same
+Next.js app under an `/admin` route segment — **not** a separate app, **not** a separate
+login. Securing it comes down to three rules:
+
+1. **Authorization is an allowlist, not a role in the DB.** Access is granted only if the
+   verified Google `sub` is in an **operator allowlist** held in a server-side env var
+   (e.g. `ADMIN_GOOGLE_SUBS`). A normal user flipping a field can never grant themselves
+   admin — the check reads config the client can't touch. Keep it to a handful of
+   accounts; revisit a DB-backed roles table only if the operator set grows.
+2. **Every `/admin` request re-verifies** the Google ID token **and** the allowlist,
+   server-side, on each request — same discipline as §1.5. No "admin cookie" that,
+   once set, is trusted blindly.
+3. **The admin can see metadata, never recipient PII — because it does not exist on the
+   server.** The dashboard queries `users`, `subscriptions`, `usage_records`,
+   `campaign_stats`, and `error_events`. None of those contain a recipient address, name,
+   subject, or body (ARCHITECTURE §4.2). So even a fully-authorized operator — or an
+   attacker who compromised an operator account — cannot exfiltrate recipient data.
+   Per-user drill-down shows *"Pro, 12 campaigns, 1,430 sends, last active 2d ago"* and
+   stops there. This is the §2.2 operator row, now with a UI: the power is bounded by the
+   data model, not just by policy.
+
+> **Why an allowlist and not "admin: true" in `users`?** A boolean in the DB is one
+> stray `UPDATE` (or one SQL-injection bug) away from privilege escalation. An env-var
+> allowlist checked on every request has no such write path from the product surface.
+
 ## 3. Database Access Rules ("Row-Level Security")
 
 "Row-level security" (RLS) means: even though many users' records sit in the same table, **each user can only touch the rows that belong to them.** Here's how that applies to Fanout's two very different data stores.
@@ -121,7 +157,7 @@ Recipient lists, email bodies, send logs, and daily counters live in **IndexedDB
 
 ### 3.2 The backend store (identity, billing, usage) — enforce these rules
 
-Your Postgres database holds `users`, `google_tokens` (only if you ever use Option B), `subscriptions`, `usage_records`, and `webhook_events`. Apply these rules, enforced on **every** request:
+Your Postgres database holds `users`, `google_tokens` (only if you ever use Option B), `subscriptions`, `usage_records`, `campaign_stats`, `error_events`, and `webhook_events`. Apply these rules, enforced on **every** request:
 
 **The golden rule:** derive the user's identity from the **verified Google ID token**, never from anything the browser sends as a plain parameter. Then scope every query to that user.
 
@@ -131,6 +167,8 @@ Your Postgres database holds `users`, `google_tokens` (only if you ever use Opti
 | `google_tokens` *(Option B only; skip for MVP)* | **Nobody via the API** — never expose tokens. Backend reads it internally to refresh access. | Backend only, during auth exchange. | One row per user. Encrypted at rest with a key held *outside* the database. If you ship Option A (recommended), this table doesn't exist — one less thing to protect. |
 | `subscriptions` | The user, only their own row (to show their plan). Operator for support. | **Only the Stripe webhook handler** — never the user. | Plan status is set by Stripe events, not by client claims. A user calling "make me pro" must be impossible; the only path to `pro` is a real Stripe payment. |
 | `usage_records` | The user, only their own rows. Operator for support. | Backend, when the extension reports counts — scoped to that user. | A user can only increment *their own* usage. They can never read or alter another user's counts. Treat client-reported counts as *advisory* — see §3.4. |
+| `campaign_stats` *(v2.0)* | The user, only their own rows. Operator (admin dashboard). | Backend, on `/api/telemetry` — scoped to the verified user. | Upserted by `(user_id, campaign_ref)`. **Counts only**, keyed by an opaque `campaign_ref` that can't be traced to recipients. A user can't touch another user's rows. |
+| `error_events` *(v2.0)* | The user (their own) + Operator (admin dashboard). | Backend, on `/api/telemetry` — scoped to the verified user (or null pre-auth). | **Scrubbed messages only** — must contain no address, name, subject, or body (§5.6). Retention-capped. Never user-writable beyond their own scope. |
 | `webhook_events` | Backend only. | Backend only, from verified Stripe webhooks. | Not user-facing at all. Used to make sure a repeated Stripe notification is never counted twice. |
 
 ### 3.3 How to actually enforce it (two layers, belt-and-suspenders)
@@ -259,6 +297,16 @@ These are the "we didn't think of that" scenarios that cause support fires and t
 
 ### 5.6 Logging & telemetry (don't leak what you promised not to hold)
 - **Sentry / error logs must scrub PII.** Your #1 support surface is send failures — but an error report that includes a recipient's email address or the message body quietly breaks your entire privacy promise. **Scrub recipient addresses, names, and email content from every log and error event before it leaves the browser.** Audit this before launch; it's easy to leak PII into logs by accident.
+- **v2.0 — the telemetry endpoint is a PII exit that must stay dry.** The extension now
+  POSTs `campaign_stats` (counts) and `error_events` (scrubbed messages) to
+  `/api/telemetry`. The scrub happens **in the browser, in `lib/logger.ts`, before the
+  request is built** — never "we'll strip it server-side," because by then it has already
+  left the machine that promised to keep it. What may be sent: numbers, opaque
+  `campaign_ref`s, error categories, HTTP status codes, extension version. What may never
+  be sent: any recipient address/name, subject, body, or CSV field value. Add a test that
+  fails if a payload to `/api/telemetry` contains an `@`-shaped string outside the user's
+  own account email. The server also re-scopes every write to the verified user (§3.2), so
+  a tampered client can only pollute its own rows.
 
 ---
 
@@ -280,7 +328,18 @@ These are the "we didn't think of that" scenarios that cause support fires and t
 - [ ] Duplicate and invalid addresses are **detected before sending**.
 - [ ] **PII scrubbed from all logs and Sentry events** — no recipient emails or message content in telemetry.
 - [ ] Marketing + ToS clearly position Fanout as **personal/transactional outreach**, not bulk marketing.
+- [ ] *(v2.0)* Admin dashboard is gated by an **operator `google_sub` allowlist** in a server env var, re-checked on every `/admin` request — no DB `admin` boolean, no admin cookie trusted blindly (§2.5).
+- [ ] *(v2.0)* `/api/telemetry` **scopes every write to the verified user** and stores counts/scrubbed metadata only; a test fails if any payload carries a recipient-shaped value (§5.6).
+- [ ] *(v2.0)* `campaign_stats` uses an **opaque `campaign_ref`** (not reversible to recipients); `error_events` are **retention-capped** and scrubbed.
+- [ ] *(v2.0)* The user dashboard verifies the Google ID token exactly like the API; no new password/account system introduced.
 
 ---
 
-*This document reflects the MVP architecture (client-heavy, backend-light, Option A auth). Two future features change the security model and require a fresh review before they ship: (1) **scheduled/offline sending**, which forces server-side token storage (Option B), and (2) **open/click tracking**, which introduces the first server-side handling of recipient activity. Revisit §1, §3, and §5.5 before building either.*
+*This document now reflects the **v2.0 platform** (extension + Next.js web app with user
+and admin dashboards, backend as Next.js API routes, Option A auth). The privacy boundary
+is unchanged: the server holds identity, billing, and counts/scrubbed metadata only —
+never recipient data. Two future features still change the security model and require a
+fresh review before they ship: (1) **scheduled/offline sending**, which forces server-side
+token storage (Option B), and (2) **open/click tracking**, which introduces the first
+server-side handling of recipient activity. Revisit §1, §2.5, §3, and §5.5 before building
+either.*

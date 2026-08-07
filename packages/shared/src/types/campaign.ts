@@ -7,6 +7,7 @@
 export type CampaignStatus =
   | 'draft'
   | 'ready'
+  | 'scheduled'
   | 'sending'
   | 'paused'
   | 'completed'
@@ -61,6 +62,8 @@ export interface Campaign {
   pauseReason: PauseReason;
   /** Human-readable account-level stop reason (Gmail 403/flagged), else null. */
   accountError: string | null;
+  /** When status is `scheduled`, the epoch-ms time the send auto-starts (TICKET-016); else null. */
+  scheduledAt: number | null;
   throttle: ThrottleConfig;
   /** Optional per-campaign daily cap; the account cap is a separate hard ceiling. */
   dailyCap: number | null;

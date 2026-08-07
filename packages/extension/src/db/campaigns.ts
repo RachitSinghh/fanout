@@ -34,6 +34,7 @@ export async function createDraftCampaign(input: {
     status: 'draft',
     pauseReason: null,
     accountError: null,
+    scheduledAt: null,
     throttle: { ...DEFAULT_THROTTLE },
     dailyCap: null,
     totalRecipients: 0,
@@ -51,7 +52,12 @@ export async function createDraftCampaign(input: {
 function deriveName(subject: string): string {
   const trimmed = subject.trim();
   if (trimmed) return trimmed.slice(0, 80);
-  return `Untitled campaign`;
+  // No subject captured — fall back to a dated name so runs stay distinguishable
+  // in the Recent list instead of a wall of identical "Untitled campaign".
+  const now = new Date();
+  const date = now.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const time = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return `Campaign — ${date}, ${time}`;
 }
 
 export async function getCampaign(id: string): Promise<Campaign | undefined> {
