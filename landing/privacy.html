@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en" class="dark scroll-smooth">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Privacy Policy — Fanout</title>
+  <meta name="description" content="How Fanout handles your data: recipient lists and email content never leave your browser; the server only ever holds account, billing, and aggregate counts." />
+  <meta name="robots" content="index,follow" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%23E8B04B'/><path d='M28 34h44M28 50h30M28 66h18' stroke='%23131209' stroke-width='8' stroke-linecap='round'/></svg>" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Geist', 'system-ui', 'sans-serif'],
+            mono: ['"Geist Mono"', 'ui-monospace', 'monospace'],
+          },
+          colors: {
+            ink: '#000000', surface: '#181818', raised: '#1F1F1F',
+            line: '#272727', hi: '#313131', warm: '#131209', accent: '#E8B04B',
+          },
+        },
+      },
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    html, body { background: #000; }
+    ::selection { background: #E8B04B; color: #131209; }
+    .prose h2 { color:#fff; font-weight:600; font-size:1.25rem; margin-top:2.25rem; margin-bottom:.6rem; }
+    .prose h3 { color:#fff; font-weight:600; margin-top:1.5rem; margin-bottom:.4rem; }
+    .prose p, .prose li { color:rgba(255,255,255,0.72); line-height:1.7; }
+    .prose ul { list-style:disc; padding-left:1.25rem; margin:.5rem 0; display:flex; flex-direction:column; gap:.35rem; }
+    .prose strong { color:#fff; font-weight:600; }
+    .prose a { color:#E8B04B; text-decoration:underline; text-underline-offset:2px; }
+    .focus-ring:focus-visible { outline:2px solid #E8B04B; outline-offset:2px; border-radius:8px; }
+  </style>
+</head>
+<body class="bg-ink text-white font-sans antialiased" style="text-wrap: pretty;">
+  <!-- NAV -->
+  <header class="border-b border-line">
+    <div class="mx-auto max-w-3xl flex items-center justify-between px-4 py-5">
+      <a href="index.html" class="flex items-center gap-2 focus-ring">
+        <span class="grid h-7 w-7 place-items-center rounded-lg bg-accent text-warm">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none"><path d="M22 2 15 22 11 13 2 9 22 2Z" fill="#131209"/></svg>
+        </span>
+        <span class="font-semibold tracking-tight">Fanout</span>
+      </a>
+      <a href="index.html" class="text-sm text-white/60 hover:text-white focus-ring">← Back to site</a>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-3xl px-4 py-12 prose">
+    <p class="text-sm text-white/40">Effective date: <strong class="text-white/70">August 7, 2026</strong></p>
+    <h1 class="mt-2 text-3xl font-bold text-white">Privacy Policy</h1>
+
+    <!-- PUBLISHER TODO: replace the bracketed placeholders below with your legal entity name,
+         support email, and site domain before going live. -->
+    <div class="mt-4 rounded-lg border border-line bg-surface p-4 text-sm text-white/55">
+      This policy covers the <strong>Fanout</strong> Chrome extension and website
+      (<em>“Fanout”, “we”, “us”</em>), operated by <strong>Rachit Singh</strong>.
+      Questions: <a href="mailto:[support@your-domain]">[support@your-domain]</a>.
+    </div>
+
+    <h2>The short version</h2>
+    <p>
+      Fanout sends each recipient their own individual email straight from <strong>your</strong>
+      Gmail account. <strong>Your recipient lists and the content of your emails never leave your
+      browser</strong> — they are stored only on your device and are never uploaded to us. If our
+      database were breached tomorrow, it would contain <strong>no recipient addresses and no
+      message content</strong>.
+    </p>
+
+    <h2>Google account access &amp; Limited Use</h2>
+    <p>Fanout requests only the minimum Google permissions needed to send on your behalf:</p>
+    <ul>
+      <li><strong><code>gmail.send</code></strong> — permission to <em>send</em> mail as you. This does <strong>not</strong> grant access to read, delete, or otherwise manage your inbox.</li>
+      <li><strong><code>openid</code>, <code>email</code>, <code>profile</code></strong> — to identify your account (your own email address and name).</li>
+    </ul>
+    <p>
+      Fanout’s use and transfer of information received from Google APIs adheres to the
+      <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Google API Services User Data Policy</a>,
+      including its <strong>Limited Use</strong> requirements. Specifically: we use Google user data
+      <strong>only</strong> to provide the sending feature you asked for; we do <strong>not</strong>
+      transfer or sell it; we do <strong>not</strong> use it for advertising; and no humans read it
+      except where you explicitly ask for support, where required for security or law, or in
+      aggregate/anonymized form that cannot identify a recipient.
+    </p>
+
+    <h2>Data stored on your device (never uploaded)</h2>
+    <p>The following live only in your browser’s local storage (IndexedDB), scoped to your Chrome profile:</p>
+    <ul>
+      <li>Imported recipient lists (email addresses, names, and any columns you add).</li>
+      <li>Your email subject and body, including personalization tokens.</li>
+      <li>Attachments you add, campaign settings, send progress, and per-recipient send logs.</li>
+    </ul>
+    <p>This data is never transmitted to Fanout’s servers. You can remove it any time by clearing the campaign, or by uninstalling the extension.</p>
+
+    <h2>Data we do collect</h2>
+    <p>
+      When you use the (optional, forthcoming) Fanout account and dashboard, our server stores a small,
+      deliberately limited set of data — <strong>never</strong> recipient addresses, names, subject
+      lines, or message bodies:
+    </p>
+    <ul>
+      <li><strong>Identity:</strong> your own Google account email and identifier, to recognize you across devices.</li>
+      <li><strong>Billing:</strong> subscription/plan status, handled by our payment processor (Stripe). Card details go directly to Stripe and never touch our servers.</li>
+      <li><strong>Aggregate usage &amp; diagnostics:</strong> counts only — e.g. “campaign X: 200 attempted, 197 sent, 3 failed” — plus error <em>codes</em> (never messages) for reliability. This is scrubbed of any recipient information in your browser before it is sent, and you can turn it off in settings.</li>
+    </ul>
+
+    <h2>Third parties</h2>
+    <ul>
+      <li><strong>Google</strong> — authentication and email delivery (mail goes browser → Google directly; we are never in the mail path).</li>
+      <li><strong>Stripe</strong> — subscription payments.</li>
+    </ul>
+    <p>We do not sell or share your data with anyone else, and we do not use advertising or third-party trackers in the extension.</p>
+
+    <h2>Data retention &amp; your rights</h2>
+    <p>
+      On-device data is entirely under your control — clearing it or uninstalling removes it. Account
+      and billing data is kept while your account is active; diagnostics are retention-capped. You may
+      request access to or deletion of your account data at any time by emailing us. You can also
+      revoke Fanout’s access from your
+      <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google Account permissions</a> at any time.
+    </p>
+
+    <h2>Security</h2>
+    <p>We keep our server surface small on purpose — the most sensitive data (your recipients and content) simply never reaches it. Payment data is handled by Stripe’s PCI-compliant infrastructure.</p>
+
+    <h2>Children</h2>
+    <p>Fanout is not directed to anyone under 16, and we do not knowingly collect their data.</p>
+
+    <h2>Changes</h2>
+    <p>We may update this policy; material changes will be reflected here with a new effective date. If we ever begin handling recipient activity (e.g. optional open/click tracking), this policy will be updated <em>before</em> that feature ships.</p>
+
+    <h2>Contact</h2>
+    <p>Questions about this policy or your data: <a href="mailto:[support@your-domain]">[support@your-domain]</a>.</p>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-line px-4 py-12">
+    <div class="mx-auto max-w-3xl flex flex-col md:flex-row items-center justify-between gap-6">
+      <div class="flex items-center gap-2">
+        <span class="grid h-7 w-7 place-items-center rounded-lg bg-accent text-warm">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none"><path d="M22 2 15 22 11 13 2 9 22 2Z" fill="#131209"/></svg>
+        </span>
+        <span class="font-semibold">Fanout</span>
+      </div>
+      <nav class="flex items-center gap-6 text-sm text-white/60">
+        <a href="index.html" class="hover:text-white focus-ring">Home</a>
+        <a href="privacy.html" class="text-white focus-ring">Privacy</a>
+        <a href="terms.html" class="hover:text-white focus-ring">Terms</a>
+      </nav>
+    </div>
+    <p class="mx-auto max-w-3xl mt-8 text-sm text-white/30">© 2026 Fanout. Runs entirely in your browser. Fanout is not affiliated with Google. Gmail is a trademark of Google LLC.</p>
+  </footer>
+</body>
+</html>
