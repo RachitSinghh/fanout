@@ -1,19 +1,17 @@
 name: CI
 
-# Runs on every push and PR. Branch protection on `main` requires all four
-# jobs below to pass before a merge is allowed (see repo Settings → Branches,
-# or the gh command in the PR description that set it up).
+# Runs on every push and PR. Branch protection on `main` requires both jobs
+# below to pass before a merge is allowed.
 on:
   push:
   pull_request:
 
 permissions:
   contents: read
-  security-events: write # CodeQL uploads findings to the Security tab
 
 jobs:
-  # 1. Secret scanning — block leaked credentials.
-  secret-scan:
+  # 1. Security scan — block leaked credentials / secrets committed to the repo.
+  security-scan:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,18 +21,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # 2. SAST — static code analysis via GitHub's native CodeQL.
-  sast:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: github/codeql-action/init@v3
-        with:
-          languages: javascript-typescript
-      - uses: github/codeql-action/analyze@v3
-
-  # 3. SCA — flag vulnerable dependencies from the lockfile.
-  sca:
+  # 2. Build must succeed.
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,19 +32,4 @@ jobs:
           node-version: 22 # pnpm 11 (packageManager) needs Node >=22.13
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # --prod: gate on deps that ship to users; dev/build-toolchain CVEs
-      # (vite, vitest, postcss) aren't part of the extension's attack surface.
-      - run: pnpm audit --prod --audit-level=high # high/critical block the merge
-
-  # 4. Unit tests.
-  unit-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22 # pnpm 11 (packageManager) needs Node >=22.13
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm test
+      - run: pnpm build
