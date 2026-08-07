@@ -1,0 +1,63 @@
+import type { Campaign } from '@fanout/shared';
+import { db } from '../db/schema';
+import { config } from '../lib/config';
+import { logger } from '../lib/logger';
+import { getSetting, SETTING_KEYS } from '../db/settings';
+
+/**
+ * Aggregate campaign telemetry (TICKET-034). **Counts and scrubbed error codes
+ * only** — never a recipient address, name, subject, or body (SECURITY §5.6).
+ * `campaignRef` is the opaque campaign UUID: not reversible to any recipient.
+ *
+ * No-ops until `VITE_BACKEND_URL` is configured, so it ships harmlessly in Phase 1
+ * and lights up in Phase 2 (TICKET-039) with no extension re-release. Also honors
+ * a user "share diagnostics" toggle, and never lets a failure disrupt sending.
+ */
+export interface CampaignTelemetry {
+  campaignRef: string;
+  attempted: number;
+  sent: number;
+  failed: number;
+  skipped: number;
+  /** Distinct Gmail error reasons seen (e.g. "rateLimitExceeded") — codes, not messages. */
+  errorCodes: string[];
+  extVersion: string;
+}
+
+/** Build the PII-free payload for a finished campaign. Exported for testing. */
+export function buildTelemetry(campaign: Campaign, errorCodes: string[], extVersion: string): CampaignTelemetry {
+  return {
+    campaignRef: campaign.id,
+    attempted: campaign.totalRecipients,
+    sent: campaign.sentCount,
+    failed: campaign.failedCount,
+    skipped: campaign.skippedCount,
+    errorCodes,
+    extVersion,
+  };
+}
+
+export async function emitCampaignTelemetry(campaign: Campaign): Promise<void> {
+  if (!config.backendUrl) return; // Phase 1: no backend yet — do nothing.
+  const share = await getSetting<boolean>(SETTING_KEYS.shareDiagnostics, true);
+  if (!share) return;
+
+  // Distinct error reason codes from the append-only send log (never messages).
+  const logs = await db.sendLogs.where('campaignId').equals(campaign.id).toArray();
+  const errorCodes = [...new Set(logs.map((l) => l.errorCode).filter((c): c is string => !!c))];
+  const version = chrome.runtime.getManifest().version;
+  const payload = buildTelemetry(campaign, errorCodes, version);
+
+  try {
+    // ponytail: unauthenticated for now; Phase 2 (TICKET-038/039) attaches the
+    // verified Google ID token, and the backend host joins host_permissions.
+    await fetch(`${config.backendUrl}/api/telemetry`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ campaign: payload }),
+    });
+  } catch (e) {
+    // Telemetry must NEVER break a send — swallow and log locally (scrubbed).
+    logger.warn('telemetry post failed', { message: e instanceof Error ? e.message : String(e) });
+  }
+}

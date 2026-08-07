@@ -4,6 +4,7 @@ import { LogIn, ShieldCheck } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useCampaignStore } from '../../store/campaignStore';
 import { useSendStatusStore } from '../../store/sendStatusStore';
+import { useEntitlementStore } from '../../store/entitlementStore';
 import { Button, Callout } from '../components/primitives';
 import { CampaignPanel } from './CampaignPanel';
 import type { ComposeSnapshot } from '../../content/gmailDom';
@@ -25,6 +26,7 @@ export function OverlayApp({
 
   useEffect(() => {
     void auth.hydrate();
+    void useEntitlementStore.getState().load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

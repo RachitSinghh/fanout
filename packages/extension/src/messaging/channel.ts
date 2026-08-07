@@ -6,6 +6,7 @@ import type {
   SendLog,
   PauseReason,
   Template,
+  Entitlement,
 } from '@fanout/shared';
 
 /** Input for creating a draft campaign from a compose window. */
@@ -60,7 +61,9 @@ export type Request =
   // Template library (TICKET-017).
   | { type: 'DATA_TEMPLATE_SAVE'; template: TemplateInput }
   | { type: 'DATA_TEMPLATE_LIST' }
-  | { type: 'DATA_TEMPLATE_DELETE'; id: string };
+  | { type: 'DATA_TEMPLATE_DELETE'; id: string }
+  // Plan entitlement (TICKET-035) — worker owns the source of truth.
+  | { type: 'DATA_GET_ENTITLEMENT' };
 
 export type RequestType = Request['type'];
 
@@ -109,6 +112,7 @@ export interface ResponseMap {
   DATA_TEMPLATE_SAVE: Template;
   DATA_TEMPLATE_LIST: Template[];
   DATA_TEMPLATE_DELETE: { ok: true };
+  DATA_GET_ENTITLEMENT: Entitlement;
 }
 
 /** Wire envelope so the caller can distinguish success from a thrown error. */

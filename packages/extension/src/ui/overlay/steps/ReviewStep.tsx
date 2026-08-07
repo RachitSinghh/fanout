@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { MIN_SEND_DELAY_MS, MAX_ATTACHMENT_BYTES, type Attachment } from '@fanout/shared';
 import { useCampaignStore } from '../../../store/campaignStore';
+import { useEntitlementStore } from '../../../store/entitlementStore';
 import { StepLayout } from '../StepLayout';
 import { Button, Card, Callout } from '../../components/primitives';
 import { renderForRecipient, sendableRecipients, findBlockingTokens } from '../../../services/preview';
@@ -315,6 +316,8 @@ function Attachments() {
   const files = campaign.attachments ?? [];
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Feature gate (TICKET-035); `free` unlocks it at launch so this is true today.
+  const canAttach = useEntitlementStore((s) => s.entitlement?.attachments ?? true);
 
   const totalBytes = files.reduce((n, a) => n + a.size, 0);
   const over = totalBytes > MAX_ATTACHMENT_BYTES;
@@ -373,9 +376,15 @@ function Attachments() {
       )}
 
       <div className="mt-3 flex items-center gap-3">
-        <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-1.5 text-label text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-sunken)]">
+        <label
+          className={`inline-flex items-center gap-2 rounded-md border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-1.5 text-label transition-colors ${
+            canAttach
+              ? 'cursor-pointer text-[var(--text-primary)] hover:bg-[var(--surface-sunken)]'
+              : 'cursor-not-allowed text-[var(--text-muted)] opacity-60'
+          }`}
+        >
           <Paperclip size={14} /> {busy ? 'Reading…' : 'Add files'}
-          <input type="file" multiple className="hidden" onChange={onPick} disabled={busy} />
+          <input type="file" multiple className="hidden" onChange={onPick} disabled={busy || !canAttach} />
         </label>
         {files.length > 0 && (
           <span className={`font-tnum text-caption ${over ? 'text-danger-fg' : 'text-[var(--text-muted)]'}`}>
@@ -384,6 +393,9 @@ function Attachments() {
         )}
       </div>
 
+      {!canAttach && (
+        <p className="mt-2 text-caption text-[var(--text-muted)]">Attachments are a Pro feature.</p>
+      )}
       {error && <p className="mt-2 text-caption text-danger-fg">{error}</p>}
       {over && (
         <Callout tone="danger" icon={<AlertTriangle size={16} />} className="mt-3">
