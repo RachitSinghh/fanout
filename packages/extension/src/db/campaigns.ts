@@ -35,6 +35,7 @@ export async function createDraftCampaign(input: {
     pauseReason: null,
     accountError: null,
     scheduledAt: null,
+    attachments: [],
     throttle: { ...DEFAULT_THROTTLE },
     dailyCap: null,
     totalRecipients: 0,

@@ -43,6 +43,22 @@ export interface TokenMapping {
   auto: boolean;
 }
 
+/**
+ * A file attached to every send in a campaign (TICKET-018). Same attachments go
+ * to all recipients (per-recipient attachments are TICKET-021, deferred). Stored
+ * locally on the campaign as base64 so the worker can build MIME per send.
+ */
+export interface Attachment {
+  /** Original filename, e.g. "deck.pdf". */
+  name: string;
+  /** MIME content type, e.g. "application/pdf". */
+  mimeType: string;
+  /** Original size in bytes (for the size guardrail + UI). */
+  size: number;
+  /** File contents, standard base64 (not url-safe). */
+  data: string;
+}
+
 export interface Campaign {
   id: string;
   name: string;
@@ -64,6 +80,8 @@ export interface Campaign {
   accountError: string | null;
   /** When status is `scheduled`, the epoch-ms time the send auto-starts (TICKET-016); else null. */
   scheduledAt: number | null;
+  /** Files attached to every send (TICKET-018); empty when none. */
+  attachments: Attachment[];
   throttle: ThrottleConfig;
   /** Optional per-campaign daily cap; the account cap is a separate hard ceiling. */
   dailyCap: number | null;

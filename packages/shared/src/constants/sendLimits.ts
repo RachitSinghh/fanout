@@ -38,3 +38,10 @@ export const RETRY = {
 
 /** Upper bound on imported list size for the MVP (SECURITY_AND_ACCESS §5.2). */
 export const MAX_RECIPIENTS = 5_000;
+
+/**
+ * Gmail rejects a message over ~25 MB. Base64 transfer-encoding inflates bytes
+ * by ~33%, so hold the RAW attachment total below this ceiling to stay safely
+ * under the wire limit once the body + MIME overhead are added (TICKET-018).
+ */
+export const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;

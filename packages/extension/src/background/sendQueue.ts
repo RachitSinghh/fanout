@@ -244,6 +244,7 @@ async function sendOne(campaign: Campaign, recipient: Recipient, fromName: strin
     subject: rendered.subject,
     bodyText: rendered.bodyText,
     bodyHtml: rendered.bodyHtml,
+    attachments: campaign.attachments ?? [],
   });
 
   const result = await sendRawEmail(raw);
