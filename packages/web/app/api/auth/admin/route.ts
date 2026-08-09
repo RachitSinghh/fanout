@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { verifyGoogleIdToken, createSessionToken } from '@/lib/auth';
-import { ADMIN_SESSION_COOKIE, ADMIN_COOKIE_PATH, isOperator } from '@/lib/session';
+import { verifyGoogleIdToken, createSessionToken, REALM_ADMIN } from '@/lib/auth';
+import { ADMIN_SESSION_COOKIE, sessionCookieOptions, isOperator } from '@/lib/session';
 
 /**
  * Operator sign-in — the SEPARATE admin auth realm (SECURITY §2.5). Verifies the
@@ -21,18 +21,14 @@ export async function POST(req: Request) {
   }
 
   if (!isOperator(user.sub)) {
-    return NextResponse.json({ error: 'not an operator' }, { status: 403 });
+    // Return the (verified) sub so the sign-in screen can show which ID to add to
+    // ADMIN_GOOGLE_SUBS — this is the caller's own account id, not a leak.
+    return NextResponse.json({ error: 'not an operator', sub: user.sub }, { status: 403 });
   }
 
-  const token = await createSessionToken(user);
+  const token = await createSessionToken(user, REALM_ADMIN);
   const store = await cookies();
-  store.set(ADMIN_SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: ADMIN_COOKIE_PATH,
-    maxAge: 60 * 60 * 24 * 30,
-  });
+  store.set(ADMIN_SESSION_COOKIE, token, sessionCookieOptions());
 
   return NextResponse.json({ ok: true });
 }

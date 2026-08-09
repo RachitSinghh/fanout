@@ -17,6 +17,13 @@ export interface SessionUser {
   name?: string;
 }
 
+// Session realms. The token's audience claim binds it to one realm, so a user
+// session token can never be verified as an admin session (and vice versa) even
+// though both are signed with the same AUTH_SECRET — the separation is
+// cryptographic, not just a matter of which cookie holds it (SECURITY §2.5).
+export const REALM_USER = 'user';
+export const REALM_ADMIN = 'admin';
+
 /** Verify a Google Identity Services credential (JWT) and extract the account. */
 export async function verifyGoogleIdToken(idToken: string): Promise<SessionUser> {
   const ticket = await googleClient.verifyIdToken({ idToken, audience: CLIENT_ID });
@@ -25,23 +32,25 @@ export async function verifyGoogleIdToken(idToken: string): Promise<SessionUser>
   return { sub: p.sub, email: p.email, name: p.name };
 }
 
-/** Sign a 30-day session JWT (HS256, AUTH_SECRET). */
-export async function createSessionToken(user: SessionUser): Promise<string> {
+/** Sign a 30-day session JWT (HS256, AUTH_SECRET) bound to a realm (audience). */
+export async function createSessionToken(user: SessionUser, audience: string): Promise<string> {
   return new SignJWT({ email: user.email, name: user.name ?? '' })
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(user.sub)
+    .setAudience(audience)
     .setIssuedAt()
     .setExpirationTime('30d')
     .sign(sessionSecret);
 }
 
-/** Verify a session token; null if missing/invalid/expired. */
-export async function readSessionToken(token: string | undefined): Promise<SessionUser | null> {
+/** Verify a session token for the given realm; null if missing/invalid/expired,
+ *  wrong realm, or lacking a verified sub+email. */
+export async function readSessionToken(token: string | undefined, audience: string): Promise<SessionUser | null> {
   if (!token) return null;
   try {
-    const { payload } = await jwtVerify(token, sessionSecret);
-    if (!payload.sub) return null;
-    return { sub: payload.sub, email: String(payload.email ?? ''), name: (payload.name as string) || undefined };
+    const { payload } = await jwtVerify(token, sessionSecret, { audience });
+    if (!payload.sub || !payload.email) return null;
+    return { sub: payload.sub, email: String(payload.email), name: (payload.name as string) || undefined };
   } catch {
     return null;
   }

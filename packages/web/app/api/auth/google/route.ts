@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { verifyGoogleIdToken, createSessionToken } from '@/lib/auth';
-import { SESSION_COOKIE } from '@/lib/session';
+import { verifyGoogleIdToken, createSessionToken, REALM_USER } from '@/lib/auth';
+import { SESSION_COOKIE, sessionCookieOptions } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 
 /** Exchange a Google Identity Services credential for a Fanout session, upserting
@@ -23,15 +23,9 @@ export async function POST(req: Request) {
     create: { googleSub: user.sub, email: user.email, name: user.name ?? null, lastSeenAt: new Date() },
   });
 
-  const token = await createSessionToken(user);
+  const token = await createSessionToken(user, REALM_USER);
   const store = await cookies();
-  store.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 30,
-  });
+  store.set(SESSION_COOKIE, token, sessionCookieOptions());
 
   return NextResponse.json({ ok: true, user: { email: user.email, name: user.name } });
 }

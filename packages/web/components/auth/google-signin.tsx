@@ -39,11 +39,21 @@ export function GoogleSignIn({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ credential: resp.credential }),
           }).catch(() => null);
-          if (!res || !res.ok) {
-            setError(unauthorizedMessage);
+          if (!res) {
+            setError('Network error. Please try again.');
             return;
           }
-          router.refresh();
+          if (res.ok) {
+            router.refresh();
+            return;
+          }
+          if (res.status === 403) {
+            // Rejected by the operator allowlist — show which ID to add.
+            const data = (await res.json().catch(() => ({}))) as { sub?: string };
+            setError(data.sub ? `${unauthorizedMessage} To grant access, add this ID to ADMIN_GOOGLE_SUBS: ${data.sub}` : unauthorizedMessage);
+            return;
+          }
+          setError('Sign-in failed. Please try again.');
         },
       });
       window.google.accounts.id.renderButton(ref.current, {
