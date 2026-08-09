@@ -64,8 +64,16 @@ export function CustomCursor() {
 
   return (
     <div ref={ref} aria-hidden className="fanout-cursor">
-      <svg viewBox="0 0 24 24" width="26" height="26">
-        <path d="M3 2 L3 19.5 L16.5 13.5 Z" fill="#000000" stroke="#FFFFFF" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
+      {/* Figma-style pointer: curved tail (cubic edges, not the flat macOS arrow). */}
+      <svg viewBox="0 0 24 24" width="24" height="24">
+        <path
+          d="M3 2 L4.3 16.8 C4.45 18 5.2 18.2 5.8 17.4 L7.9 14.6 C8.1 14.3 8.5 14.2 8.9 14.35 L12.5 15.7 C13.7 16.1 14.4 14.8 13.6 13.9 Z"
+          fill="#E8B04B"
+          stroke="#1A1A1A"
+          strokeWidth="1"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
       </svg>
     </div>
   );
