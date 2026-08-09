@@ -33,7 +33,7 @@ export function UpgradeButton() {
       >
         {busy ? 'Redirecting…' : 'Upgrade to Pro'}
       </Button>
-      {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-xs text-red-400">{error}</p>}
     </div>
   );
 }

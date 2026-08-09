@@ -48,6 +48,9 @@ model Subscription {
   provider               String    @default("lemonsqueezy")
   providerCustomerId     String?   @map("provider_customer_id")
   providerSubscriptionId String?   @map("provider_subscription_id")
+  // The provider's own updated_at from the last event we applied — used to reject
+  // stale / out-of-order webhook deliveries (ours below is the row's timestamp).
+  providerUpdatedAt      DateTime? @map("provider_updated_at")
   plan                   Plan      @default(free)
   status                 SubStatus @default(active)
   currentPeriodEnd       DateTime? @map("current_period_end")

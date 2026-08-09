@@ -14,20 +14,30 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'bad signature' }, { status: 401 });
   }
 
-  let payload: {
+  type Payload = {
     meta: { event_name: string; custom_data?: { user_sub?: string } };
     data: { id: string; type: string; attributes: Record<string, unknown> };
   };
+  const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
+
+  // Validate the shape, not just the JSON syntax: a validly-signed `null` or a
+  // payload missing `data`/`meta`/`attributes` would otherwise throw a 500 when
+  // we read nested fields. An invalid schema is a client error (400).
+  let parsed: unknown;
   try {
-    payload = JSON.parse(raw);
+    parsed = JSON.parse(raw);
   } catch {
     return NextResponse.json({ error: 'bad payload' }, { status: 400 });
   }
+  if (!isRecord(parsed) || !isRecord(parsed.meta) || !isRecord(parsed.data) || !isRecord(parsed.data.attributes)) {
+    return NextResponse.json({ error: 'bad payload' }, { status: 400 });
+  }
+  const payload = parsed as Payload;
 
   // Only act on Subscription resources. `subscription_payment_*` events carry
   // INVOICE data (type 'subscription-invoices') with no subscription status —
   // processing them would wrongly downgrade a paying user.
-  if (payload.data?.type !== 'subscriptions') return NextResponse.json({ ok: true });
+  if (payload.data.type !== 'subscriptions') return NextResponse.json({ ok: true });
 
   const attrs = payload.data.attributes;
   const lsSub = String(payload.data.id);
@@ -48,6 +58,7 @@ export async function POST(req: Request) {
 
   const endsAt = typeof attrs.ends_at === 'string' ? new Date(attrs.ends_at) : null;
   const renewsAt = typeof attrs.renews_at === 'string' ? new Date(attrs.renews_at) : null;
+  const providerUpdatedAt = typeof attrs.updated_at === 'string' ? new Date(attrs.updated_at) : null;
 
   // Access is granted while active/trialing, through the dunning grace (past_due),
   // and after cancellation until the paid period actually ends.
@@ -59,20 +70,33 @@ export async function POST(req: Request) {
 
   const existing = await prisma.subscription.findUnique({ where: { userId: user.id } });
 
-  // Ordering guard: a revoking event for a DIFFERENT (superseded) subscription
-  // must not overwrite the current one (out-of-order / re-delivered webhooks).
-  if (existing?.providerSubscriptionId && existing.providerSubscriptionId !== lsSub && !grantsAccess) {
-    return NextResponse.json({ ok: true });
+  // Ordering / superseded-subscription guard for out-of-order and re-delivered
+  // webhooks (both common). Every subscription event carries the provider's
+  // updated_at; an event that isn't strictly newer than the one we last applied
+  // can't carry newer truth. Two cases are stale:
+  //   - a revoke for a DIFFERENT (superseded) subscription — never touch the current one;
+  //   - any event (same or different sub) not newer than what we last applied.
+  if (existing?.providerSubscriptionId) {
+    const differentSub = existing.providerSubscriptionId !== lsSub;
+    const notNewer =
+      !!existing.providerUpdatedAt &&
+      !!providerUpdatedAt &&
+      providerUpdatedAt.getTime() <= existing.providerUpdatedAt.getTime();
+    if ((differentSub && !grantsAccess) || notNewer) {
+      return NextResponse.json({ ok: true });
+    }
   }
 
-  // Preserve an existing 'team' plan (team isn't sold via these Pro variants yet;
-  // don't silently strip it). Otherwise grant 'pro' or revoke to 'free'.
-  const plan = grantsAccess ? (existing?.plan === 'team' ? 'team' : 'pro') : 'free';
+  // Preserve an existing 'team' plan regardless of this event (team isn't sold via
+  // these Pro variants yet, so a cancel/expire here must not strip it). Otherwise
+  // grant 'pro' while access holds, or revoke to 'free'.
+  const plan = existing?.plan === 'team' ? 'team' : grantsAccess ? 'pro' : 'free';
 
   const fields = {
     provider: 'lemonsqueezy',
     providerCustomerId: String(attrs.customer_id ?? ''),
     providerSubscriptionId: lsSub,
+    providerUpdatedAt: providerUpdatedAt ?? existing?.providerUpdatedAt ?? null,
     plan,
     status: mapStatus(status),
     currentPeriodEnd: endsAt ?? renewsAt,
