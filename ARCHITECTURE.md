@@ -632,7 +632,7 @@ Copy `.env.example` and fill per environment. **Never commit real secrets.** Any
 | Variable | Example | Notes |
 |---|---|---|
 | `VITE_GOOGLE_OAUTH_CLIENT_ID` | `1234-abc.apps.googleusercontent.com` | Public. OAuth client of type **"Chrome App"** (must match the extension id). |
-| `VITE_BACKEND_URL` | `https://api.fanout.app` | Public. Base URL for license/usage calls. |
+| `VITE_BACKEND_URL` | `https://fanout-web.vercel.app` | Public. Base URL of the deployed web app for entitlement/telemetry calls. |
 | `VITE_SENTRY_DSN` | `https://xxx@sentry.io/123` | Public DSN is fine; scrub PII before sending events. |
 | `VITE_ENV` | `production` \| `staging` \| `development` | Toggles verbose logging and mock endpoints. |
 
@@ -644,7 +644,7 @@ Also configured in the manifest (not `.env`): `oauth2.scopes` = `["https://www.g
 | `DATABASE_URL` | `postgresql://...` | Postgres connection string (Neon/Supabase). |
 | `GOOGLE_OAUTH_CLIENT_ID` | `1234-abc.apps.googleusercontent.com` | The **web** OAuth client (only if using Option B). |
 | `GOOGLE_OAUTH_CLIENT_SECRET` | `GOCSPX-...` | **Secret.** Server-only. Option B only. |
-| `GOOGLE_OAUTH_REDIRECT_URI` | `https://api.fanout.app/auth/callback` | Must match Google console config. Option B only. |
+| `GOOGLE_OAUTH_REDIRECT_URI` | `https://fanout-web.vercel.app/auth/callback` | Must match Google console config. Option B only. |
 | `TOKEN_ENCRYPTION_KEY` | `base64 32-byte key` | **Secret.** Encrypts refresh tokens at rest; ideally sourced from KMS, not an env literal. |
 | `STRIPE_SECRET_KEY` | `sk_live_...` | **Secret.** Server-side Stripe calls. |
 | `STRIPE_WEBHOOK_SECRET` | `whsec_...` | **Secret.** Verifies webhook signatures — reject unverified events. |
