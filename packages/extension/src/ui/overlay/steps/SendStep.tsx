@@ -140,7 +140,7 @@ function PreSend({
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduledAt, setScheduledAt] = useState<number | null>(null);
   const validAt = scheduledAt != null && scheduledAt - Date.now() >= 60_000;
-  // Feature gate (TICKET-035); `free` unlocks it at launch so this is true today.
+  // Feature gate (TICKET-035): scheduling is Pro-only; free tier disables it.
   const canSchedule = useEntitlementStore((s) => s.entitlement?.scheduling ?? true);
 
   return (

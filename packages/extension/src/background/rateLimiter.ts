@@ -39,14 +39,19 @@ export async function incrementToday(accountEmail: string): Promise<number> {
   });
 }
 
-/** Effective daily ceiling: account type cap, further limited by a campaign cap. */
+/** Effective daily ceiling: the account-type cap, further limited by the plan's
+ *  cap (free tier) and the campaign cap. Any of the limits may be null (no
+ *  limit from that source); the smallest that applies wins. */
 export function effectiveDailyCap(
   accountType: AccountType,
   campaignCap: number | null,
+  planCap: number | null = null,
 ): number {
-  const accountCeiling = dailyCapFor(accountType);
-  if (campaignCap == null) return accountCeiling;
-  return Math.min(accountCeiling, campaignCap);
+  return Math.min(
+    dailyCapFor(accountType),
+    planCap ?? Infinity,
+    campaignCap ?? Infinity,
+  );
 }
 
 /** Milliseconds until the next local midnight (when the daily allowance resets). */
