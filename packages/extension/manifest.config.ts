@@ -49,9 +49,11 @@ export default defineManifest({
     'https://gmail.googleapis.com/*',
     'https://www.googleapis.com/*',
     'https://people.googleapis.com/*',
-    // Fanout backend for telemetry/entitlement (TICKET-039/040). Dev = localhost;
-    // add the production API host here at deploy time.
+    // Fanout backend for telemetry/entitlement (TICKET-039/040). Both dev
+    // (localhost) and the deployed web app — the SW needs host access to each so
+    // the entitlement/telemetry fetch isn't CORS-blocked.
     'http://localhost:3000/*',
+    'https://fanout-web.vercel.app/*',
   ],
   oauth2: {
     client_id: CLIENT_ID,
