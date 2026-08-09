@@ -6,7 +6,7 @@ import { renderForRecipient } from '../services/preview';
 import { tokenValuesFor } from '../services/recipients';
 import { sendRawEmail } from './gmailClient';
 import * as auth from '../services/authService';
-import { getEntitlement, planDailyCap } from '../services/entitlementService';
+import { getEntitlement, cachedPlanDailyCap } from '../services/entitlementService';
 import { nextDelayMs } from './throttle';
 import { backoffMs, canRetry } from './retry';
 import {
@@ -90,6 +90,9 @@ export async function resumeSending(): Promise<void> {
 // ── State transitions ───────────────────────────────────────────────────────
 
 async function start(campaignId: string): Promise<void> {
+  // Refresh the cached tier at run start (off the hot path) so the tick's
+  // cache-only cap guard reads a fresh plan without a pre-cap network call.
+  await getEntitlement();
   await db.campaigns.update(campaignId, {
     status: 'sending',
     pauseReason: null,
@@ -111,6 +114,7 @@ async function pause(campaignId: string, reason: PauseReason, accountError: stri
 }
 
 async function resume(campaignId: string): Promise<void> {
+  await getEntitlement(); // refresh cached tier before the cache-only cap guard (see start())
   await db.campaigns.update(campaignId, {
     status: 'sending',
     pauseReason: null,
@@ -191,7 +195,7 @@ async function tick(): Promise<void> {
     }
 
     // Daily-cap guardrail — enforced BEFORE any network call (TICKET-010).
-    const cap = effectiveDailyCap(identity.accountType, campaign.dailyCap, await planDailyCap());
+    const cap = effectiveDailyCap(identity.accountType, campaign.dailyCap, await cachedPlanDailyCap());
     const todayCount = await getTodayCount(campaign.fromEmail);
     if (todayCount >= cap) {
       await pause(campaign.id, 'daily_cap');
@@ -362,7 +366,7 @@ async function complete(campaign: Campaign): Promise<void> {
 async function maybeResumeCapped(campaign: Campaign): Promise<void> {
   const identity = await auth.getIdentity();
   if (!identity) return;
-  const cap = effectiveDailyCap(identity.accountType, campaign.dailyCap, await planDailyCap());
+  const cap = effectiveDailyCap(identity.accountType, campaign.dailyCap, await cachedPlanDailyCap());
   const todayCount = await getTodayCount(campaign.fromEmail);
   if (todayCount < cap) {
     await resume(campaign.id);
@@ -472,7 +476,7 @@ async function buildSnapshot(campaignId: string): Promise<ProgressSnapshot | nul
   const counts = await countByStatus(campaignId);
   const total = counts.pending + counts.sending + counts.sent + counts.failed + counts.skipped;
   const identity = await auth.getIdentity();
-  const cap = effectiveDailyCap(identity?.accountType ?? 'unknown', campaign.dailyCap, await planDailyCap());
+  const cap = effectiveDailyCap(identity?.accountType ?? 'unknown', campaign.dailyCap, await cachedPlanDailyCap());
   const dailyCount = await getTodayCount(campaign.fromEmail);
   const approxDelay =
     campaign.status === 'sending'

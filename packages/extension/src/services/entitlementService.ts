@@ -58,8 +58,18 @@ async function cachedTier(): Promise<PlanTier> {
   return isTier(cached) ? cached : 'free';
 }
 
-/** The current plan's daily send cap for the send engine (null = no plan cap).
- *  Backed by the memoized resolver above — safe to call on every tick. */
-export async function planDailyCap(): Promise<number | null> {
-  return (await getEntitlement()).dailyCapMax;
+/**
+ * The plan's daily send cap for the send engine's cap GUARD, resolved from LOCAL
+ * cache only — NEVER a network call. The daily cap must be checked before any
+ * network I/O to protect the account (ARCHITECTURE §7, TICKET-010), so this reads
+ * the persisted last-known tier (survives worker death) and fails closed to the
+ * free cap on an unknown/missing value. The remote tier is refreshed off the hot
+ * path — on each `sendOne` and at run start — so a plan change still propagates.
+ */
+export async function cachedPlanDailyCap(): Promise<number | null> {
+  if (isDev) {
+    const override = await getSetting<unknown>(SETTING_KEYS.planOverride, null);
+    if (isTier(override)) return entitlementFor(override).dailyCapMax;
+  }
+  return entitlementFor(await cachedTier()).dailyCapMax;
 }
