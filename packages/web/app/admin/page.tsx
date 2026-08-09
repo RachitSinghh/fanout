@@ -3,14 +3,9 @@ import { prisma } from '@/lib/prisma';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Stat } from '@/components/dashboard/stat';
 import { GoogleSignIn } from '@/components/auth/google-signin';
+import { fmtDate, fmtDateTime, pct } from '@/lib/format';
 
 export const dynamic = 'force-dynamic'; // reads the session cookie
-
-const fmtDate = (d: Date | null | undefined) =>
-  d ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—';
-const fmtDateTime = (d: Date) =>
-  d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-const pct = (n: number, d: number) => (d > 0 ? `${Math.round((n / d) * 100)}%` : '—');
 
 export default async function AdminPage() {
   const session = await getSessionUser();

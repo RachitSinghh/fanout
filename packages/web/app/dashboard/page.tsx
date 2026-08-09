@@ -6,12 +6,9 @@ import { Stat } from '@/components/dashboard/stat';
 import { GoogleSignIn } from '@/components/auth/google-signin';
 import { SignOutButton } from '@/components/auth/sign-out-button';
 import { UpgradeButton } from '@/components/billing/upgrade-button';
+import { fmtDate, pct } from '@/lib/format';
 
 export const dynamic = 'force-dynamic'; // reads the session cookie
-
-const fmtDate = (d: Date | null | undefined) =>
-  d ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
-const pct = (n: number, d: number) => (d > 0 ? `${Math.round((n / d) * 100)}%` : '—');
 
 export default async function DashboardPage() {
   const session = await getSessionUser();
@@ -35,33 +32,38 @@ export default async function DashboardPage() {
   const plan = entitlementFor((user?.subscription?.plan as PlanTier) ?? 'free');
 
   // Usage aggregates from scrubbed telemetry (TICKET-039); never any recipient data.
-  const monthStart = new Date();
-  monthStart.setDate(1);
-  monthStart.setHours(0, 0, 0, 0);
-  const [allTime, thisMonth, recent] = user
+  // Totals are all-time: CampaignStat holds a cumulative per-campaign lifetime
+  // counter with no per-day breakdown, and Fanout spreads a campaign's sends over
+  // many days (throttle + daily cap) — so a truthful "this month" isn't derivable.
+  const [allTime, recent] = user
     ? await Promise.all([
         prisma.campaignStat.aggregate({
           where: { userId: user.id },
           _sum: { attempted: true, sent: true, failed: true },
           _count: true,
         }),
-        prisma.campaignStat.aggregate({
-          where: { userId: user.id, startedAt: { gte: monthStart } },
-          _sum: { sent: true },
-        }),
         prisma.campaignStat.findMany({
           where: { userId: user.id },
-          orderBy: { reportedAt: 'desc' },
+          orderBy: { startedAt: 'desc' },
           take: 10,
         }),
       ])
-    : [null, null, []];
+    : [null, []];
 
   const sent = allTime?._sum.sent ?? 0;
   const attempted = allTime?._sum.attempted ?? 0;
   const failed = allTime?._sum.failed ?? 0;
   const campaigns = allTime?._count ?? 0;
-  const sentThisMonth = thisMonth?._sum.sent ?? 0;
+
+  const sub = user?.subscription;
+  const renewal = fmtDate(sub?.currentPeriodEnd, true);
+  const billingSuffix = !sub?.currentPeriodEnd
+    ? ' — thanks for the support.'
+    : sub.status === 'canceled'
+      ? ` — access until ${renewal}`
+      : sub.status === 'past_due'
+        ? ' — payment past due'
+        : ` — renews ${renewal}`;
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-12">
@@ -74,7 +76,7 @@ export default async function DashboardPage() {
       </div>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
-        <Stat label="Sent this month" value={sentThisMonth.toLocaleString()} sub={`${sent.toLocaleString()} all-time`} />
+        <Stat label="Sent" value={sent.toLocaleString()} sub="all-time" />
         <Stat label="Campaigns" value={campaigns.toLocaleString()} sub={`${attempted.toLocaleString()} attempted`} />
         <Stat label="Delivered" value={pct(sent, attempted)} sub={failed > 0 ? `${failed.toLocaleString()} failed` : 'no failures'} />
       </div>
@@ -96,10 +98,8 @@ export default async function DashboardPage() {
             </>
           ) : (
             <CardDescription>
-              <span className="text-brand-400 capitalize">{plan.tier} · {user?.subscription?.status ?? 'active'}</span>
-              {user?.subscription?.currentPeriodEnd
-                ? ` — renews ${fmtDate(user.subscription.currentPeriodEnd)}`
-                : ' — thanks for the support.'}
+              <span className="text-brand-400 capitalize">{plan.tier} · {sub?.status ?? 'active'}</span>
+              {billingSuffix}
             </CardDescription>
           )}
         </Card>
