@@ -1,40 +1,33 @@
-import { getSessionUser, isOperator } from '@/lib/session';
+import { getAdminSession, isOperator } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Stat } from '@/components/dashboard/stat';
 import { GoogleSignIn } from '@/components/auth/google-signin';
+import { SignOutButton } from '@/components/auth/sign-out-button';
 import { fmtDate, fmtDateTime, pct } from '@/lib/format';
 
-export const dynamic = 'force-dynamic'; // reads the session cookie
+export const dynamic = 'force-dynamic'; // reads the admin session cookie
+
+// The admin login screen — a SEPARATE realm from the user dashboard. Sign-in only
+// succeeds for allowlisted operators (enforced in /api/auth/admin).
+function AdminSignIn() {
+  return (
+    <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-6 px-6 text-center">
+      <h1 className="text-2xl font-semibold">Operator sign-in</h1>
+      <p className="text-white/60">Sign in with an operator account to view monitoring.</p>
+      <GoogleSignIn endpoint="/api/auth/admin" unauthorizedMessage="This account isn't an operator." />
+    </main>
+  );
+}
 
 export default async function AdminPage() {
-  const session = await getSessionUser();
+  const session = await getAdminSession();
 
-  if (!session) {
-    return (
-      <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-6 px-6 text-center">
-        <h1 className="text-2xl font-semibold">Operator sign-in</h1>
-        <p className="text-white/60">Sign in with an operator account to view monitoring.</p>
-        <GoogleSignIn />
-      </main>
-    );
-  }
-
-  // Allowlist gate — a stray field can never grant admin (SECURITY §2.5).
-  if (!isOperator(session.sub)) {
-    return (
-      <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-3 px-6 text-center">
-        <h1 className="text-2xl font-semibold">Not authorized</h1>
-        <p className="text-white/60">
-          This is the operator dashboard. Your account ({session.email}) isn&apos;t on the allowlist.
-        </p>
-        <p className="mt-2 font-mono text-xs text-white/40">
-          Add this to ADMIN_GOOGLE_SUBS to grant access:
-          <br />
-          {session.sub}
-        </p>
-      </main>
-    );
+  // No admin session → show the operator sign-in (not the user dashboard's).
+  // Re-check the allowlist as defense in depth: a cookie issued to an operator who
+  // was later removed from ADMIN_GOOGLE_SUBS must lose access immediately.
+  if (!session || !isOperator(session.sub)) {
+    return <AdminSignIn />;
   }
 
   // Aggregate monitoring — all scrubbed metadata; never any recipient data.
@@ -56,8 +49,13 @@ export default async function AdminPage() {
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-12">
-      <h1 className="text-2xl font-semibold">Admin</h1>
-      <p className="mt-1 text-white/60">Operator monitoring — scrubbed metadata only.</p>
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold">Admin</h1>
+          <p className="mt-1 truncate text-white/60">{session.email} · scrubbed metadata only</p>
+        </div>
+        <SignOutButton endpoint="/api/auth/admin/logout" />
+      </div>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Signups" value={userCount.toLocaleString()} />

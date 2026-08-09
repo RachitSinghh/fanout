@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -11,10 +11,18 @@ declare global {
 }
 
 /** "Sign in with Google" via Google Identity Services. Returns an ID token
- *  (credential) that our /api/auth/google verifies server-side (TICKET-038). */
-export function GoogleSignIn() {
+ *  (credential) that a server route verifies (TICKET-038). `endpoint` picks the
+ *  auth realm: the user dashboard (default) or the operator admin login. */
+export function GoogleSignIn({
+  endpoint = '/api/auth/google',
+  unauthorizedMessage = 'Sign-in failed. Please try again.',
+}: {
+  endpoint?: string;
+  unauthorizedMessage?: string;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
@@ -25,12 +33,27 @@ export function GoogleSignIn() {
       window.google.accounts.id.initialize({
         client_id: clientId,
         callback: async (resp: { credential: string }) => {
-          await fetch('/api/auth/google', {
+          setError(null);
+          const res = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ credential: resp.credential }),
-          });
-          router.refresh();
+          }).catch(() => null);
+          if (!res) {
+            setError('Network error. Please try again.');
+            return;
+          }
+          if (res.ok) {
+            router.refresh();
+            return;
+          }
+          if (res.status === 403) {
+            // Rejected by the operator allowlist — show which ID to add.
+            const data = (await res.json().catch(() => ({}))) as { sub?: string };
+            setError(data.sub ? `${unauthorizedMessage} To grant access, add this ID to ADMIN_GOOGLE_SUBS: ${data.sub}` : unauthorizedMessage);
+            return;
+          }
+          setError('Sign-in failed. Please try again.');
         },
       });
       window.google.accounts.id.renderButton(ref.current, {
@@ -51,10 +74,15 @@ export function GoogleSignIn() {
     script.defer = true;
     script.onload = init;
     document.head.appendChild(script);
-  }, [router]);
+  }, [router, endpoint, unauthorizedMessage]);
 
   if (!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
     return <p className="text-sm text-red-400">Set NEXT_PUBLIC_GOOGLE_CLIENT_ID in .env to enable sign-in.</p>;
   }
-  return <div ref={ref} />;
+  return (
+    <div className="flex flex-col items-center gap-3">
+      <div ref={ref} />
+      {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
+    </div>
+  );
 }
