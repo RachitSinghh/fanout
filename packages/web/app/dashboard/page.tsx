@@ -2,11 +2,16 @@ import { entitlementFor, type PlanTier } from '@fanout/shared';
 import { getSessionUser } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import { Card, CardTitle, CardDescription } from '@/components/ui/card';
+import { Stat } from '@/components/dashboard/stat';
 import { GoogleSignIn } from '@/components/auth/google-signin';
 import { SignOutButton } from '@/components/auth/sign-out-button';
 import { UpgradeButton } from '@/components/billing/upgrade-button';
 
 export const dynamic = 'force-dynamic'; // reads the session cookie
+
+const fmtDate = (d: Date | null | undefined) =>
+  d ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+const pct = (n: number, d: number) => (d > 0 ? `${Math.round((n / d) * 100)}%` : '—');
 
 export default async function DashboardPage() {
   const session = await getSessionUser();
@@ -29,6 +34,35 @@ export default async function DashboardPage() {
   });
   const plan = entitlementFor((user?.subscription?.plan as PlanTier) ?? 'free');
 
+  // Usage aggregates from scrubbed telemetry (TICKET-039); never any recipient data.
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+  const [allTime, thisMonth, recent] = user
+    ? await Promise.all([
+        prisma.campaignStat.aggregate({
+          where: { userId: user.id },
+          _sum: { attempted: true, sent: true, failed: true },
+          _count: true,
+        }),
+        prisma.campaignStat.aggregate({
+          where: { userId: user.id, startedAt: { gte: monthStart } },
+          _sum: { sent: true },
+        }),
+        prisma.campaignStat.findMany({
+          where: { userId: user.id },
+          orderBy: { reportedAt: 'desc' },
+          take: 10,
+        }),
+      ])
+    : [null, null, []];
+
+  const sent = allTime?._sum.sent ?? 0;
+  const attempted = allTime?._sum.attempted ?? 0;
+  const failed = allTime?._sum.failed ?? 0;
+  const campaigns = allTime?._count ?? 0;
+  const sentThisMonth = thisMonth?._sum.sent ?? 0;
+
   return (
     <main className="mx-auto max-w-4xl px-6 py-12">
       <div className="flex items-center justify-between gap-4">
@@ -40,15 +74,18 @@ export default async function DashboardPage() {
       </div>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
+        <Stat label="Sent this month" value={sentThisMonth.toLocaleString()} sub={`${sent.toLocaleString()} all-time`} />
+        <Stat label="Campaigns" value={campaigns.toLocaleString()} sub={`${attempted.toLocaleString()} attempted`} />
+        <Stat label="Delivered" value={pct(sent, attempted)} sub={failed > 0 ? `${failed.toLocaleString()} failed` : 'no failures'} />
+      </div>
+
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <Card>
           <CardTitle className="capitalize">{plan.tier} plan</CardTitle>
           <CardDescription>
-            Scheduling {plan.scheduling ? 'on' : 'off'} · Attachments {plan.attachments ? 'on' : 'off'}
+            {plan.dailyCapMax ? `${plan.dailyCapMax}/day` : 'Full daily cap'} · Scheduling{' '}
+            {plan.scheduling ? 'on' : 'off'} · Attachments {plan.attachments ? 'on' : 'off'}
           </CardDescription>
-        </Card>
-        <Card>
-          <CardTitle>Usage</CardTitle>
-          <CardDescription>Sends this period — from telemetry (TICKET-039).</CardDescription>
         </Card>
         <Card>
           <CardTitle>Billing</CardTitle>
@@ -59,11 +96,46 @@ export default async function DashboardPage() {
             </>
           ) : (
             <CardDescription>
-              <span className="text-brand-400">Pro · active</span> — thanks for the support.
+              <span className="text-brand-400 capitalize">{plan.tier} · {user?.subscription?.status ?? 'active'}</span>
+              {user?.subscription?.currentPeriodEnd
+                ? ` — renews ${fmtDate(user.subscription.currentPeriodEnd)}`
+                : ' — thanks for the support.'}
             </CardDescription>
           )}
         </Card>
       </div>
+
+      <h2 className="mt-10 text-lg font-semibold">Recent campaigns</h2>
+      {recent.length === 0 ? (
+        <p className="mt-2 text-sm text-white/50">
+          No campaigns yet. Send one from the extension and it&apos;ll show up here.
+        </p>
+      ) : (
+        <div className="mt-3 overflow-x-auto rounded-xl border border-line">
+          <table className="w-full min-w-[32rem] text-left text-sm">
+            <thead className="border-b border-line text-xs uppercase tracking-wide text-white/40">
+              <tr>
+                <th className="px-4 py-3 font-medium">Campaign</th>
+                <th className="px-4 py-3 font-medium tabular-nums">Sent</th>
+                <th className="px-4 py-3 font-medium tabular-nums">Failed</th>
+                <th className="px-4 py-3 font-medium tabular-nums">Cap hits</th>
+                <th className="px-4 py-3 font-medium">Date</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {recent.map((c) => (
+                <tr key={c.id} className="text-white/80">
+                  <td className="px-4 py-3 font-mono text-xs text-white/60">{c.campaignRef}</td>
+                  <td className="px-4 py-3 tabular-nums">{c.sent}/{c.attempted}</td>
+                  <td className="px-4 py-3 tabular-nums">{c.failed}</td>
+                  <td className="px-4 py-3 tabular-nums">{c.capHits}</td>
+                  <td className="px-4 py-3 text-white/60">{fmtDate(c.startedAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </main>
   );
 }
