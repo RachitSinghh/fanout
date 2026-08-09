@@ -7,6 +7,7 @@ import { sendToWorker } from '../../messaging/channel';
 import { dbClient } from '../../services/dbClient';
 import { downloadResultsCsv } from '../../services/csvExport';
 import { Button, Card, Callout, Badge, Wordmark } from '../components/primitives';
+import { config } from '../../lib/config';
 
 export function Popup() {
   const { status, identity, error, hydrate, connect, disconnect } = useAuthStore();
@@ -111,7 +112,25 @@ function ConnectedView({
 function PlanLabel() {
   const tier = useEntitlementStore((s) => s.entitlement?.tier);
   if (!tier) return null;
-  return <p className="mt-0.5 text-caption capitalize text-brand-400">{tier} plan</p>;
+  // Free tier gets an upgrade path to the dashboard (where checkout lives).
+  const showUpgrade = tier === 'free' && !!config.backendUrl;
+  return (
+    <p className="mt-0.5 text-caption text-brand-400">
+      <span className="capitalize">{tier} plan</span>
+      {showUpgrade && (
+        <>
+          {' · '}
+          <button
+            type="button"
+            className="underline underline-offset-2 hover:text-brand-300"
+            onClick={() => void chrome.tabs.create({ url: `${config.backendUrl}/dashboard` })}
+          >
+            Upgrade to Pro
+          </button>
+        </>
+      )}
+    </p>
+  );
 }
 
 function StartCampaignCard() {

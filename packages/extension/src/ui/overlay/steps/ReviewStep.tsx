@@ -316,7 +316,7 @@ function Attachments() {
   const files = campaign.attachments ?? [];
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Feature gate (TICKET-035); `free` unlocks it at launch so this is true today.
+  // Feature gate (TICKET-035): attachments are Pro-only; free tier disables it.
   const canAttach = useEntitlementStore((s) => s.entitlement?.attachments ?? true);
 
   const totalBytes = files.reduce((n, a) => n + a.size, 0);
