@@ -31,6 +31,8 @@ export async function POST(req: Request) {
     });
     return NextResponse.json({ url: checkoutUrl });
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'checkout failed' }, { status: 502 });
+    // Log the upstream detail server-side; never surface it to the client.
+    console.error('billing checkout failed:', e);
+    return NextResponse.json({ error: 'Could not start checkout. Please try again.' }, { status: 502 });
   }
 }

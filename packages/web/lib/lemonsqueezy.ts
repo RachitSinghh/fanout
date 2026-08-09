@@ -23,32 +23,40 @@ export interface StoreVariant {
   productName: string;
 }
 
-let variantCache: StoreVariant[] | null = null;
+// Short TTL so a price/variant change in Lemon Squeezy propagates within minutes,
+// instead of being pinned for the life of a warm serverless instance.
+const CACHE_TTL_MS = 5 * 60 * 1000;
+let variantCache: { at: number; data: StoreVariant[] } | null = null;
 
-/** All published subscription variants in the store, joined to their product names. */
+/** Every store variant joined to its product name. The `/variants` endpoint does
+ *  NOT allow `filter[store_id]` (400), so we list the store's products with their
+ *  variants included and flatten — one StoreVariant per (product, variant). */
 async function listVariants(): Promise<StoreVariant[]> {
-  if (variantCache) return variantCache;
-  const res = await fetch(`${API}/variants?filter[store_id]=${STORE_ID}&include=product`, { headers: headers() });
-  if (!res.ok) throw new Error(`LS variants ${res.status}`);
+  if (variantCache && Date.now() - variantCache.at < CACHE_TTL_MS) return variantCache.data;
+  const res = await fetch(`${API}/products?filter[store_id]=${STORE_ID}&include=variants`, { headers: headers() });
+  if (!res.ok) throw new Error(`LS products ${res.status}`);
   const json = (await res.json()) as {
-    data: { id: string; relationships: { product: { data: { id: string } } } }[];
-    included?: { id: string; type: string; attributes: { name: string } }[];
+    data: { id: string; attributes: { name: string }; relationships: { variants: { data: { id: string }[] } } }[];
   };
-  const products = new Map((json.included ?? []).filter((i) => i.type === 'products').map((p) => [p.id, p.attributes.name]));
-  variantCache = json.data.map((v) => ({
-    variantId: v.id,
-    productName: products.get(v.relationships.product.data.id) ?? '',
-  }));
-  return variantCache;
+  const data = json.data.flatMap((p) =>
+    (p.relationships.variants.data ?? []).map((v) => ({ variantId: v.id, productName: p.attributes.name })),
+  );
+  variantCache = { at: Date.now(), data };
+  return data;
 }
 
-/** Pick the variant for a country: IN → "India" product, else the other. */
+/**
+ * Pick the variant for a country: IN → the "India" product, everyone else → the
+ * global product. Fails CLOSED for non-IN (returns null rather than falling back
+ * to the cheaper India variant) so a naming slip can never undercharge the world.
+ */
 export async function variantForCountry(country: string | null): Promise<string | null> {
   const variants = await listVariants();
   if (variants.length === 0) return null;
   const india = variants.find((v) => /india/i.test(v.productName));
-  const global = variants.find((v) => !/india/i.test(v.productName)) ?? variants[0];
-  return (country === 'IN' ? india : global)?.variantId ?? global?.variantId ?? null;
+  const global = variants.find((v) => !/india/i.test(v.productName));
+  if (country === 'IN') return (india ?? global)?.variantId ?? null;
+  return global?.variantId ?? null;
 }
 
 /** Create a hosted checkout; returns its URL. `userSub` rides along in custom
