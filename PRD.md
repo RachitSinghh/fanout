@@ -96,6 +96,63 @@ re-release through Chrome's review queue.
 
 ---
 
+## 1.6 Scope Evolution — v3.0 (planned, not now): more mailboxes + an optional Cloud tier
+
+v2.0 turned Fanout into a business without moving the privacy line. v3.0 is the next
+growth bet, **written down here so the code seams get built right — not built now.**
+Two independent threads, each optional, neither weakening the local-first default.
+
+### Thread A — More mailboxes (Outlook and beyond)
+
+The send engine already doesn't know it's talking to Gmail: it calls one function
+(`sendRawEmail → SendResult`) and branches on an error bucket. So a second provider is
+a **new adapter, not a new engine** (ARCHITECTURE §7.7). Outlook-on-the-web (Microsoft
+Graph `sendMail`) is the first target.
+
+- **On-brand, not a boundary break.** "Personalized outreach from *your* mailbox,
+  whichever one is yours — still no server." Widens the market, leaves the privacy story
+  intact.
+- **Scope honesty:** a Chrome extension reaches Outlook **on the web only** — not the
+  desktop client or mobile. Most "Outlook is everywhere" usage is unreachable this way.
+- **The real cost is the DOM adapter, not the API.** Outlook Web is a virtualized app
+  across several hosts and breaks on their redesigns — an ongoing maintenance line, same
+  fragility class as Gmail injection (ARCHITECTURE §7.3).
+
+### Thread B — Dashboard-native sending + an optional Cloud tier
+
+Users at scale will want to run campaigns from the web dashboard, not only inside the
+mail UI. **This splits into two very different things that must not be conflated:**
+
+1. **Dashboard-native send (client-side, NO server).** The dashboard connects the user's
+   Gmail/Outlook and sends *from the browser* — the list still lives in the browser,
+   nothing hits our server. This is a UI location change, not a boundary change.
+   **Do this first; the privacy claim is untouched.**
+2. **The Cloud tier (opt-in, server-backed).** Only for what a browser genuinely can't
+   do: sending while the machine is **closed** (scheduled/overnight), **cross-device
+   sync**, and **team sharing**. These require server-side token storage and encrypted
+   list storage (e.g. S3) — which *does* cross the privacy line.
+
+**Keep both — as tiers, not as a default.** Local-first stays the free/privacy promise;
+the Cloud tier is an **explicit, per-user opt-in** upgrade. The moment a recipient list is
+stored server-side we become a breach target and a data processor (GDPR/DPA), so it is
+encrypted at rest, opt-in with clear consent, and stores **only** what the enabled feature
+needs — never "sync everything to S3 by default" (SECURITY §7.2). The marketing line
+becomes "your data never leaves the browser **unless you turn on Cloud**" — precise, and
+still true.
+
+### Phase plan (appends to §1.5)
+
+| Phase | Goal | Contains | Gate |
+|---|---|---|---|
+| **3a — More mailboxes** | Outlook web support | Provider seam (ARCH §7.7); Microsoft Graph adapter; Outlook DOM adapter; MS OAuth (`Mail.Send` only) | A second provider sends |
+| **3b — Dashboard-native send** | Send from the web, still client-side | Browser-side Gmail/Graph send from `/dashboard`; list stays local | Campaign sent from dashboard, **zero** recipient data server-side |
+| **3c — Cloud tier (opt-in)** | Offline/scheduled send, sync, teams | Server-side token storage (auth Option B); encrypted list storage; background send worker | An opt-in Cloud campaign runs with the laptop closed |
+
+None of 3a–3c is committed. They are sequenced so the reversible, on-brand work (3a, 3b)
+ships before the boundary-crossing work (3c), and so 3c is never built wholesale.
+
+---
+
 ## 2. Problem Statement
 
 People who need to email many individuals — but want each one to feel like a personal, 1:1 message — currently have no easy, native way to do this from Gmail.
@@ -227,6 +284,13 @@ Explicit MVP boundaries:
 > in particular, the admin dashboard is *internal operations telemetry* (counts,
 > health, billing), **not** user-facing marketing analytics, and it never contains
 > recipient data.
+
+> **v3.0 update (planned, not now):** Two exclusions below — Outlook/other providers,
+> and server-side recipient storage — get a deliberate future home in §1.6. They remain
+> **out of current scope**; §1.6 exists so the code seams are built right, so the
+> boundary-crossing pieces stay opt-in and tiered, and so nothing here is built wholesale.
+> Third-party **SMTP relays** and shared sending IPs stay permanently excluded — sending
+> always goes through the user's own mailbox, which is core to the value prop.
 
 To keep scope tight and shippable, the following are deliberately excluded, even though they're common requests in this space:
 

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import {
   LockSimple, GoogleChromeLogo, UsersThree, CheckCircle, CircleNotch, Clock,
   BracketsCurly, ShieldCheck, ArrowsClockwise, LockKey, Timer, EnvelopeOpen,
-  Plus, PaperPlaneTilt,
+  Plus, PaperPlaneTilt, XCircle,
 } from '@phosphor-icons/react';
 import { Reveal } from '@/components/marketing/reveal';
 import { ProductTour } from '@/components/marketing/product-tour';
@@ -14,6 +14,16 @@ import { CountUp } from '@/components/marketing/count-up';
 import { Tagline } from '@/components/marketing/tagline';
 
 const TOKEN = (t: string) => <span className="rounded bg-accent/15 px-1.5 py-0.5 font-mono text-accent">{`{{${t}}}`}</span>;
+
+// [dimension, how Fanout does it, how typical server based blasters do it]
+const COMPARISON: [string, string, string][] = [
+  ['How each email is sent', 'One gmail.send per person, straight from your own Gmail', 'Blasted from shared sending servers you rent'],
+  ['Where your contact list lives', 'In your browser, never uploaded anywhere', 'Uploaded to and stored on their backend'],
+  ['Open and click tracking', 'None. No pixel and no rewritten links', 'A tracking pixel and rewritten links in every message'],
+  ['Sending reputation', 'Yours, guarded by daily caps and randomized throttling', 'A shared IP pool you do not control'],
+  ['What the recipient gets', 'A normal email that threads back into your inbox', 'A tracked broadcast from a bulk system'],
+  ['What it costs', 'Free while in beta, no card and no account with us', 'A monthly subscription per seat'],
+];
 
 export default function Home() {
   return (
@@ -28,6 +38,7 @@ export default function Home() {
           </a>
           <div className="hidden items-center gap-6 text-sm text-white/70 md:flex">
             <a href="#how" className="focus-ring transition-colors hover:text-white">How it works</a>
+            <a href="#compare" className="focus-ring transition-colors hover:text-white">Compare</a>
             <a href="#safety" className="focus-ring transition-colors hover:text-white">Safety</a>
             <a href="#faq" className="focus-ring transition-colors hover:text-white">FAQ</a>
           </div>
@@ -143,6 +154,41 @@ export default function Home() {
             <h2 className="heading-grad mt-3 text-3xl font-semibold tracking-tight text-balance md:text-4xl">Mail merge tools route through a stranger&apos;s servers</h2>
             <p className="mt-5 text-lg text-white/65">Most bulk senders upload your contact list to their backend, blast from a shared IP, and put your Gmail reputation in someone else&apos;s hands. Fanout does the opposite. It drives your own Gmail from inside the browser, sends each message as a distinct email, and keeps every name, address, and note on your machine.</p>
           </Reveal>
+        </section>
+
+        {/* COMPARISON */}
+        <section id="compare" className="px-4 py-24">
+          <div className="mx-auto max-w-5xl">
+            <Reveal className="mx-auto mb-14 max-w-2xl text-center">
+              <p className="text-sm font-semibold text-accent">Fanout vs the blast tools</p>
+              <h2 className="heading-grad mt-3 text-3xl font-semibold tracking-tight text-balance md:text-4xl">A personalization tool, not a mail blaster</h2>
+              <p className="mt-4 text-lg text-white/60">The usual mass senders route your list and your reputation through their own servers to hit volume. Fanout gives that up on purpose, so the trade is real. Here is where the two part ways.</p>
+            </Reveal>
+            <Reveal className="overflow-hidden rounded-2xl border border-line bg-surface">
+              <div className="grid grid-cols-[1.3fr_1fr_1fr] border-b border-line text-sm font-semibold">
+                <div className="px-4 py-4 text-white/45 md:px-6" />
+                <div className="flex items-center gap-2 bg-warm px-4 py-4 md:px-6">
+                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-accent text-warm"><PaperPlaneTilt weight="bold" className="text-sm" /></span>
+                  Fanout
+                </div>
+                <div className="px-4 py-4 text-white/55 md:px-6">Typical mass mailers</div>
+              </div>
+              {COMPARISON.map(([dimension, fanout, others]) => (
+                <div key={dimension} className="grid grid-cols-[1.3fr_1fr_1fr] border-b border-line text-sm last:border-b-0">
+                  <div className="px-4 py-4 font-medium text-white/70 md:px-6">{dimension}</div>
+                  <div className="flex items-start gap-2 bg-warm px-4 py-4 text-white/85 md:px-6">
+                    <CheckCircle weight="fill" className="mt-0.5 shrink-0 text-accent" />
+                    <span>{fanout}</span>
+                  </div>
+                  <div className="flex items-start gap-2 px-4 py-4 text-white/50 md:px-6">
+                    <XCircle weight="fill" className="mt-0.5 shrink-0 text-white/25" />
+                    <span>{others}</span>
+                  </div>
+                </div>
+              ))}
+            </Reveal>
+            <p className="mt-4 text-center text-sm text-white/40">If you need open tracking, inbox rotation, and thousands of sends a day, a server based blaster is the right tool. If you want each email to genuinely come from you, this is.</p>
+          </div>
         </section>
 
         {/* BENEFITS */}

@@ -335,11 +335,37 @@ These are the "we didn't think of that" scenarios that cause support fires and t
 
 ---
 
+## 7. Future scope (v3.0) — multi-provider and the optional Cloud tier
+
+Neither is in current scope (PRD §1.6). Both are written down now so the security model is decided *before* code exists, not after.
+
+### 7.1 A second mail provider (Outlook via Microsoft Graph)
+
+Same rule as Google, second identity provider. **Least scope still applies:** request only `Mail.Send` (plus basic sign-in) from Microsoft — never `Mail.Read`, `Mail.ReadWrite`, or any mailbox-wide scope. Auth uses `chrome.identity.launchWebAuthFlow` against an Azure app registration; the access token is short-lived and held in the browser exactly like the Google token (§1.5). **No provider changes where recipient data lives — it stays local.** Add Outlook's hosts to the extension's content-script matches and nowhere else.
+
+### 7.2 The Cloud tier changes the threat model — treat it as a new trust boundary
+
+Today the privacy claim rests on a physical fact: recipient data is in IndexedDB, so there is nothing on the server to breach (§3.1). The Cloud tier (opt-in server-side list storage, for offline/scheduled send, sync, and teams) **removes that fact for the users who enable it.** Before any of it ships:
+
+- **Opt-in with explicit consent, per user.** Off by default. Enabling it is a deliberate, logged choice, and the Privacy Policy + this document must be revised *first* (§5.5). The public claim becomes "your data never leaves the browser **unless you turn on Cloud**."
+- **Encrypt recipient data at rest**, with a key held *outside* the datastore (same discipline as Option-B refresh tokens, §3.2). Object storage (e.g. S3) means bucket-level encryption **and** application-level envelope encryption per user.
+- **Store only what the enabled feature needs** — never a blanket mirror of IndexedDB. Scheduled send needs the pending queue; it does not need the user's entire contact history.
+- **You are now a data processor.** GDPR/DPA obligations, deletion-on-request, and a breach-notification path all become real the moment the first list is stored. This is the cost the local-first default was avoiding — accept it consciously, per feature, not by drift.
+- **Offline sending forces server-side tokens (Option B).** A refresh token that can send as the user, held on your server, is the highest-value secret in the system: encrypted at rest, **never returned via any API** (§3.2), revocable, and scoped to the one Cloud feature.
+- **RLS everywhere it touches.** Server-stored lists get the same per-user scoping and database-level RLS as every other table (§3.3): a Cloud user must never reach another Cloud user's recipients, and a non-Cloud user has no recipient rows on the server at all.
+
+The test from §3.2 doesn't change — its *answer* does. For Cloud-tier users, "could this reveal who a user emailed?" becomes *yes, for data they explicitly chose to store*, so that data earns the **strongest** protections in the system, not the weakest.
+
+---
+
 *This document now reflects the **v2.0 platform** (extension + Next.js web app with user
 and admin dashboards, backend as Next.js API routes, Option A auth). The privacy boundary
 is unchanged: the server holds identity, billing, and counts/scrubbed metadata only —
-never recipient data. Two future features still change the security model and require a
+never recipient data. Two v2.0-era features still change the security model and require a
 fresh review before they ship: (1) **scheduled/offline sending**, which forces server-side
 token storage (Option B), and (2) **open/click tracking**, which introduces the first
-server-side handling of recipient activity. Revisit §1, §2.5, §3, and §5.5 before building
-either.*
+server-side handling of recipient activity. **v3.0 (§7)** adds two more threads — a
+**second mail provider** (least-scope, still local) and an **opt-in Cloud tier** that
+stores recipient data server-side; the Cloud tier is the first deliberate crossing of the
+recipient-data boundary and must not ship before the review §7.2 requires. Revisit §1,
+§2.5, §3, §5.5, and §7 before building any of these.*

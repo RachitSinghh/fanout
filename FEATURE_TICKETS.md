@@ -67,6 +67,42 @@ Goal: paid product. Build order: `036 → 037 → 038 → 039 → 040 → 041 �
 
 ---
 
+## Phase 3 — Multi-provider + optional Cloud tier (v3.0, later — PRD §1.6)
+
+**Not committed.** Sequenced so the reversible, on-brand work (044–046) ships before the boundary-crossing work (047–049), and so the server tier is never built wholesale. The engine is already provider-agnostic and the privacy boundary is load-bearing — every ticket here respects both (ARCHITECTURE §7.7, SECURITY §7).
+
+### TICKET-044 — Provider abstraction seam (`MailProvider`)
+**Priority:** SHOULD · **Depends on:** TICKET-009 · **New** · **Refactor, no behavior change**
+**Build:** Formalize the seam that already exists in `sendRawEmail`'s shape into a `MailProvider` type (send + error-classify + account/cap lookup), with Gmail as the sole implementation. Move per-provider caps into `packages/shared/constants`. Engine and content script depend on the type, not on `gmailClient` directly. Do this **only when TICKET-045 is actually committed** — not speculatively.
+**AC:** existing Gmail send path unchanged (all engine tests green); `sendQueue.ts` imports no Gmail-specific symbol; adding a provider touches only its own folder + the manifest.
+
+### TICKET-045 — Outlook provider (Microsoft Graph)
+**Priority:** SHOULD · **Depends on:** TICKET-044 · **New**
+**Build:** A second `MailProvider`: send via Graph `POST /me/sendMail` with a Graph error-code → bucket table; auth via `chrome.identity.launchWebAuthFlow` + an Azure app registration, scope **`Mail.Send` only** (SECURITY §7.1); an `outlookDom.ts` adapter for `outlook.office.com`/`.live.com` compose injection; Outlook hosts added to `manifest.config.ts`. Outlook-on-the-web only — desktop/mobile are out of reach.
+**AC:** a personalized campaign sends end-to-end from Outlook web; error buckets behave like Gmail's (403 stops the whole run); no recipient data leaves the browser; least-scope MS consent; the DOM adapter degrades to null (never throws) when Outlook's markup changes (ARCHITECTURE §7.3).
+
+### TICKET-046 — Dashboard-native sending (client-side, NO server)
+**Priority:** SHOULD · **Depends on:** TICKET-044, TICKET-038 · **New**
+**Build:** Let users run a campaign from `/dashboard` instead of inside the mail UI: the dashboard page connects Gmail/Graph, holds the list **in the browser**, and sends via the provider directly. Reuse the shared engine + personalization; the list never touches the server. A UI-host change, not a boundary change (ARCHITECTURE §7.7, PRD §1.6 Thread B.1).
+**AC:** a campaign sends from the web dashboard with **zero recipient data written server-side** (verify by extending the §5.6 telemetry test to dashboard requests); the local-first extension path is unchanged.
+
+### TICKET-047 — Cloud tier: opt-in encrypted server-side list storage
+**Priority:** COULD · **Depends on:** TICKET-046 · **New** · **⚠ Crosses the privacy boundary — opt-in only**
+**Build:** An **off-by-default, per-user opt-in** to store campaign lists server-side (object storage, e.g. S3), enabling the Cloud-tier features below. Application-level envelope encryption per user + at-rest bucket encryption; per-user RLS; store only what an enabled feature needs, never a blanket IndexedDB mirror. **Revise the Privacy Policy + SECURITY §7.2 before this ships.**
+**AC:** disabled by default; enabling is explicit + logged consent; stored lists encrypted at rest with a key held outside the store; a Cloud user can never read another user's data; a non-Cloud user has no recipient rows server-side; marketing copy updated to "…unless you turn on Cloud."
+
+### TICKET-048 — Server-side scheduled / offline sending (auth Option B)
+**Priority:** COULD · **Depends on:** TICKET-047 · **New**
+**Build:** Send campaigns while the user's machine is closed. Requires server-side OAuth **Option B** (SECURITY §5): a refresh token stored **encrypted at rest, never returned via any API**, plus a server-side send worker that honors the same throttle + daily-cap + error-bucket rules as the client engine. Scoped strictly to the Cloud feature; revocable.
+**AC:** a scheduled Cloud campaign completes with the browser closed; refresh tokens encrypted + non-exfiltratable; the server sender obeys caps/throttle/403-stop identically to the client; opt-out deletes the stored token.
+
+### TICKET-049 — Cross-device sync & team sharing (Cloud tier)
+**Priority:** COULD · **Depends on:** TICKET-047 · **New** · **Supersedes TICKET-023/024**
+**Build:** Sync Cloud-stored lists/templates across a user's devices and (Team tier) share within a team, all on the encrypted, RLS-scoped store from 047. Folds in the Nice-to-Have multi-account / team-collaboration items.
+**AC:** sync reflects only the signed-in user's (or their team's) data; RLS enforced at the DB; sharing is explicit; no cross-tenant leakage.
+
+---
+
 ## Deferred — needs recipient-activity server infrastructure or is post-MVP
 
 ### TICKET-014 — Open Tracking (pixel-based) · TICKET-015 — Click Tracking
@@ -117,6 +153,12 @@ Phase 1 (extension → Web Store):
 Phase 2 (platform):
    036 → 037 → 038 → 039 → 040 → 041 → 042 → 043
                          041 ─┘ (entitlement 040 needs subscriptions)
+
+Phase 3 (v3.0, later — NOT committed):
+   044 → 045 (Outlook)
+   044 → 046 (dashboard-native, client-side, no server)
+   046 → 047 (⚠ opt-in server storage) → 048 (offline send)
+                                        └→ 049 (sync / teams)
 ```
 
 ## Cross-cutting non-negotiables (apply to every ticket)
