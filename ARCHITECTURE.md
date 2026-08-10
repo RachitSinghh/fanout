@@ -709,6 +709,28 @@ the sole feature that would cross it — and stays deferred.
 - The Chrome Web Store review adds latency to every release — batch changes, keep a fast-rollback story (the store lets you re-publish a prior version).
 - Extension code is public; treat the bundle as readable by competitors and attackers alike. No secrets, no clever obfuscation-as-security.
 
+### 7.7 Future (v3.0): the provider seam and the optional server tier — design for it, don't build it yet
+Two growth threads (PRD §1.6) are foreseeable enough to shape the code now, cheap enough to defer building.
+
+**Multi-provider (Outlook, …).** The engine is already provider-agnostic: `sendQueue.ts` calls `sendRawEmail(raw): Promise<SendResult>` and branches only on `SendErrorBucket`. Everything load-bearing — the IndexedDB state machine, the no-double-send transaction, retry, throttle, daily caps, resume-on-wake — is reusable across providers **unchanged**. The provider-specific surface is exactly four seams:
+
+| Seam | Today (Gmail) | Outlook equivalent |
+|---|---|---|
+| Send API + error `classify()` | `background/gmailClient.ts` | Microsoft Graph `POST /me/sendMail`; a new error-code → bucket table |
+| Auth | `services/authService.ts` (`chrome.identity.getAuthToken`, **Google-only**) | MS OAuth via `chrome.identity.launchWebAuthFlow` + an Azure app registration; scope `Mail.Send` |
+| DOM injection | `content/gmailDom.ts` + `injectButton.ts` | an `outlookDom.ts` for `outlook.office.com` / `.live.com` (several hosts, virtualized DOM — the real cost, §7.3) |
+| Manifest | `manifest.config.ts` matches + `host_permissions` | add Outlook hosts + MS OAuth config |
+
+Per-provider daily caps live in `packages/shared/constants`. **Do not add a `MailProvider` interface until the second provider is actually committed** — one implementation needs no abstraction, and the seam already exists in `sendRawEmail`'s shape. When committed, structure as one folder per provider implementing those four seams.
+
+**Dashboard-native send vs. the Cloud tier — two different things.** Sending from the web dashboard does **not** require a server: the dashboard page holds a `gmail.send`/Graph token and the list in browser memory and calls the send API directly — same client-side posture as the extension, just a different UI host. Build this first; the §7.4 boundary is untouched.
+
+A server is required **only** for capabilities the browser can't provide:
+- **Scheduled/offline sending** (run while the machine is closed) → forces server-side refresh-token storage (auth **Option B**, §5) + a server-side send worker that must honor the same throttle / daily-cap / error-bucket rules as the client engine.
+- **Cross-device sync** and **team sharing** → force server-side (encrypted) list storage.
+
+That server-side list storage is the first and only planned crossing of the §7.4 boundary for *sender-supplied recipient data*. Design it as an **isolated, opt-in "Cloud" subsystem** (SECURITY §7.2): encrypted at rest, keyed per user, storing only what the enabled feature needs — never a blanket "mirror IndexedDB to S3." The local-first path stays the default and keeps working with the Cloud tier switched off.
+
 ---
 
 ## 8. Suggested Build Sequence (dependency-ordered)
@@ -725,4 +747,4 @@ the sole feature that would cross it — and stays deferred.
 
 ---
 
-*This architecture intentionally optimizes for MVP speed, low operating cost, and a defensible privacy story. Revisit §5 (auth) and §7.4 (privacy) before adding scheduled sending or tracking, as both push work back toward the server.*
+*This architecture intentionally optimizes for MVP speed, low operating cost, and a defensible privacy story. Revisit §5 (auth), §7.4 (privacy), and §7.7 (the provider seam + optional Cloud tier) before adding a second mail provider, scheduled/offline sending, or tracking — each pushes work back toward the server.*
